@@ -4,19 +4,12 @@ permalink: index.html
 
 # Please update this with your repository name and title
 repository-name: eYY-XXX-project-template
-title:
+title: e18-co502-RV32IM-pipeline-implementation-group05
 ---
 
-[comment]: # "This is the standard layout for the project, but you can clean this and use your own template"
-
-# Project Title
+# E18/CO502 - RV32IM pipeline implementation - Group 05
 
 ---
-
-This is a sample image, to show how to add images to your page. To learn more options, please refer [this](https://projects.ce.pdn.ac.lk/docs/faq/how-to-add-an-image/)
-
-![Sample Image](./images/sample.png)
-
 
 ## Team
 -  eNumber, Name, [email](mailto:name@email.com)
