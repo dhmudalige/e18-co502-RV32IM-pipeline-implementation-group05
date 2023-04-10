@@ -7,6 +7,9 @@ module instruction_memory(
     readdata,
 	busywait
 );
+
+`define MEM_READ_DELAY #40
+
 input				clock;
 input				read;
 input[27:0]			address;  // 28 bit memory blocks
@@ -46,22 +49,22 @@ always @(posedge clock)
 begin
 	if(readaccess)
 	begin
-		readdata[7:0]     = #40 memory_array[{address,4'b0000}];
-		readdata[15:8]    = #40 memory_array[{address,4'b0001}];
-		readdata[23:16]   = #40 memory_array[{address,4'b0010}];
-		readdata[31:24]   = #40 memory_array[{address,4'b0011}];
-		readdata[39:32]   = #40 memory_array[{address,4'b0100}];
-		readdata[47:40]   = #40 memory_array[{address,4'b0101}];
-		readdata[55:48]   = #40 memory_array[{address,4'b0110}];
-		readdata[63:56]   = #40 memory_array[{address,4'b0111}];
-		readdata[71:64]   = #40 memory_array[{address,4'b1000}];
-		readdata[79:72]   = #40 memory_array[{address,4'b1001}];
-		readdata[87:80]   = #40 memory_array[{address,4'b1010}];
-		readdata[95:88]   = #40 memory_array[{address,4'b1011}];
-		readdata[103:96]  = #40 memory_array[{address,4'b1100}];
-		readdata[111:104] = #40 memory_array[{address,4'b1101}];
-		readdata[119:112] = #40 memory_array[{address,4'b1110}];
-		readdata[127:120] = #40 memory_array[{address,4'b1111}];
+		readdata[7:0]     = `MEM_READ_DELAY memory_array[{address,4'b0000}];
+		readdata[15:8]    = `MEM_READ_DELAY memory_array[{address,4'b0001}];
+		readdata[23:16]   = `MEM_READ_DELAY memory_array[{address,4'b0010}];
+		readdata[31:24]   = `MEM_READ_DELAY memory_array[{address,4'b0011}];
+		readdata[39:32]   = `MEM_READ_DELAY memory_array[{address,4'b0100}];
+		readdata[47:40]   = `MEM_READ_DELAY memory_array[{address,4'b0101}];
+		readdata[55:48]   = `MEM_READ_DELAY memory_array[{address,4'b0110}];
+		readdata[63:56]   = `MEM_READ_DELAY memory_array[{address,4'b0111}];
+		readdata[71:64]   = `MEM_READ_DELAY memory_array[{address,4'b1000}];
+		readdata[79:72]   = `MEM_READ_DELAY memory_array[{address,4'b1001}];
+		readdata[87:80]   = `MEM_READ_DELAY memory_array[{address,4'b1010}];
+		readdata[95:88]   = `MEM_READ_DELAY memory_array[{address,4'b1011}];
+		readdata[103:96]  = `MEM_READ_DELAY memory_array[{address,4'b1100}];
+		readdata[111:104] = `MEM_READ_DELAY memory_array[{address,4'b1101}];
+		readdata[119:112] = `MEM_READ_DELAY memory_array[{address,4'b1110}];
+		readdata[127:120] = `MEM_READ_DELAY memory_array[{address,4'b1111}];
 		busywait = 0;
 		readaccess = 0;
 	end
