@@ -12,9 +12,9 @@ title: e18-co502-RV32IM-pipeline-implementation-group05
 ---
 
 ## Team
--  eNumber, Name, [email](mailto:name@email.com)
--  eNumber, Name, [email](mailto:name@email.com)
--  eNumber, Name, [email](mailto:name@email.com)
+-  E/18/010 - A.K.D.A.S. Abeywickrama [email](mailto:e18010@eng.pdn.ac.lk)
+-  E/18/227 - D.H. Mudalige [email](mailto:e18227@eng.pdn.ac.lk)
+-  E/18/329 - D.W.S.N. Sewwandi [email](mailto:e18329@eng.pdn.ac.lk)
 
 ## Table of Contents
 1. [Introduction](#introduction)
