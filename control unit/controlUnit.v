@@ -90,7 +90,7 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
                         LOADSIGNAL=5;
                    
                 endcase
-                ALUOP=4'b0000;   
+                ALUOP=4'b0001;   
                 SELECTWRITE=1; 
                 READ=1;                   
             end
