@@ -1,0 +1,84 @@
+R-Type - 0110011
+funct3
+    ADD - 000
+    SUB - 000
+
+    SLL - 001
+    SLT - 010
+    SLTU - 011
+    XOR - 100
+
+    SRL - 101
+    SRA - 101
+
+    OR - 110
+    AND - 111
+
+
+    MUL
+    MULH
+    MULHU
+    MULHSU
+    DIV
+    DIVU
+    REM
+    REMU
+
+
+
+I-Type - 0010011
+funct3
+    ADDI - 000
+
+    SLTI - 010
+    SLTIU - 011
+
+    XORI - 100
+    ORI - 110
+    ANDI - 111
+
+    SLLI - 001
+
+    SRLI - 101
+    SRAI - 101
+
+JALR - 1100111
+
+0000011
+funct3
+    LB - 000
+    LH - 001
+    LW - 010
+
+    LBU - 100
+    LHU - 101
+
+
+
+S-Type - 0100011
+funct3
+    SW - 000
+    SH - 001
+    SB - 010
+
+
+
+B-Type - 1100011
+funct3
+    BEQ - 000
+    BNE - 001
+    BLT - 100
+    BGE - 101
+    BLTU - 110
+    BGEU - 111
+
+
+
+U-Type
+    LUI - 0110111
+    AUIPC - 0010111
+
+
+
+J-Type
+    JAL - 1101111
