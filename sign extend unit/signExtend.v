@@ -32,7 +32,7 @@ module signExtend(INSTRUCTION,OUTPUT);
             
             //B TYPE
             7'b1100011:
-                assign OUTPUT = {{20{INSTRUCTION[31]}},INSTRUCTION[7],INSTRUCTION[30:25],INSTRUCTION[11:5],1'b0};
+                assign OUTPUT = {{19{INSTRUCTION[31]}},INSTRUCTION[7],INSTRUCTION[30:25],INSTRUCTION[11:8],2'b00};
             
             //LUI
             7'b0110111 :
