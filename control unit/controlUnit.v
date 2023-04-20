@@ -21,7 +21,7 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
     * Declare inputs and outputs
     *
     */
-    input [7:0] OPCODE; 
+    input [6:0] OPCODE; 
     input [2:0] func3;
     input [6:0] func7;
     input BUSYWAIT;
