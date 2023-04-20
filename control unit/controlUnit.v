@@ -3,13 +3,6 @@
 //timescale
 `timescale  1ns/100ps
 
-`include "alu.v"
-`include "regfile.v"
-`include "mux.v"
-`include "adder.v"
-`include "signExtend.v"
-`include "dmem.v"
-
 
 
 /*
