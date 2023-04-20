@@ -1,43 +1,53 @@
 
 /*
  * signExtend module - 
- * Extend the INPUT(8/12 bits) to 32 bits
- * assign the most significant bit to the rest
  * 
  */
-module signExtend(OUTPUT,INPUT,SIGNAL);
+module signExtend(INSTRUCTION,OUTPUT);
     //declare input,output
-    input [11:0] INPUT;           
-    input [1:0] SIGNAL;          //0 - 8 bit , 1- 12 bit
-    output reg[31:0] OUTPUT;     //offset as 32 bits
-
-
+    input [31:0] INSTRUCTION;           
+    
+    output reg[31:0] OUTPUT;    
+   
     always @(*) begin
         #1;
      
         //------------sign extending----------------
 
-        //if signal == 0 => 8 bit to 32 bit extender
-        if (SIGNAL==0) begin
-            OUTPUT[7:0]=INPUT[7:0]; 
-            //if MSB is 0 assign 0 to rest
-            if (INPUT[7]==0) begin
-                OUTPUT[31:8]=0; 
-            end
-            //if MSB is 1 assign 1 to rest
-            else OUTPUT[31:8]= 1;
-        end
+        case (INSTRUCTION[6:0] )
+            
+            //LOAD
+            7'b0000011: 
+                assign OUTPUT = {{21{INSTRUCTION[31]}},INSTRUCTION[30:20]};
+            //JALR
+            7'b1100111 : 
+                assign OUTPUT = {{21{INSTRUCTION[31]}},INSTRUCTION[30:20]};
+            //I TYPE
+            7'b0010011:
+                assign OUTPUT = {{21{INSTRUCTION[31]}},INSTRUCTION[30:20]};
 
-        //if signal == 1 => 12 bit to 32 bit extender
-        else begin
-            OUTPUT[11:0]=INPUT[11:0];
-             //if MSB is 0 assign 0 to rest
-            if (INPUT[11]==0) begin
-                OUTPUT[31:12]=0; 
-            end
-            //if MSB is 1 assign 1 to rest
-            else OUTPUT[31:12]= 1;
-        end
+            //STORE
+            7'b0100011:
+                assign OUTPUT = {{21{INSTRUCTION[31]}},INSTRUCTION[30:25],INSTRUCTION[11:7]};
+            
+            //B TYPE
+            7'b1100011:
+                assign OUTPUT = {{20{INSTRUCTION[31]}},INSTRUCTION[7],INSTRUCTION[30:25],INSTRUCTION[11:5],1'b0};
+            
+            //LUI
+            7'b0110111 :
+                assign OUTPUT = {INSTRUCTION[31:12],{12{1'b0}}};
+            //AUIPC
+            7'b0010111:
+                assign OUTPUT = {INSTRUCTION[31:12],{12{1'b0}}};
+            //JAL
+            7'b1101111 :
+                assign OUTPUT = {{12{INSTRUCTION[31]}},INSTRUCTION[19:12],INSTRUCTION[20],INSTRUCTION[30:21],1'b0};
+
+            
+            
+        endcase
+
 
       
 
