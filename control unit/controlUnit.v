@@ -3,13 +3,6 @@
 //timescale
 `timescale  1ns/100ps
 
-`include "alu.v"
-`include "regfile.v"
-`include "mux.v"
-`include "adder.v"
-`include "signExtend.v"
-`include "dmem.v"
-
 
 
 /*
@@ -23,19 +16,23 @@
 
 
 
-module control_unit(ALUOP,READ,WRITE,SELECTWRITE,SUBflag,IMMflag,Jumpflag,BEQflag,BNEQflag,ShiftSignal,WRITEENABLE,OPCODE,BUSYWAIT,INSTRUCTION);
+module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STORESIGNAL,BRANCHSIGNAL,WRITEENABLE,OPCODE,BUSYWAIT,func3,func7);
     /*
     * Declare inputs and outputs
     *
     */
-    input [7:0] OPCODE; 
-    input [31:0] INSTRUCTION;
+    input [6:0] OPCODE; 
+    input [2:0] func3;
+    input [6:0] func7;
     input BUSYWAIT;
 
-    output reg READ,WRITE,SELECTWRITE;
-    output reg [2:0] ALUOP;
-    output reg SUBflag,IMMflag,Jumpflag,BEQflag,BNEQflag,WRITEENABLE;
-    output reg [1:0]ShiftSignal;
+    output reg READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,WRITEENABLE;
+    output reg [4:0] ALUOP;  
+    output reg [2:0]LOADSIGNAL,BRANCHSIGNAL; 
+    output reg [1:0]STORESIGNAL;
+
+
+   
   
     
     //When busywait changes, 
@@ -62,53 +59,78 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,SUBflag,IMMflag,Jumpflag,BEQfla
     //set 1 time unit delay for instruction decoding
     #1;
     Jumpflag=0;
-    BEQflag=0;
-    BNEQflag=0;
+  
     SELECTWRITE=0;
     WRITEENABLE=0;
-    SUBflag=0;
     IMMflag=0;
-
-    func7 = INSTRUCTION[31:25]
-    func3 = INSTRUCTION[14:12]
-
-
+    LOADSIGNAL=0;
+    STORESIGNAL=0;
+    BRANCHSIGNAL=0;
+ 
         case (OPCODE)
-            //LB, LH, LW, LBU, LHU, 
+            //LB, LH, LW, LBU, LHU,
             7'b0000011 : begin
                 case (func3)
                     3'b000:  //LB
+                        LOADSIGNAL=1;
                     3'b001:  //LH
+                        LOADSIGNAL=2;
                     3'b010:  //LW
+                        LOADSIGNAL=3;
                     3'b100:  //LBU
+                        LOADSIGNAL=4;
                     3'b101:  //LHU
+                        LOADSIGNAL=5;
                    
                 endcase
-                // ALUOP=3'b000; SUBflag=0; IMMflag=1;    
-                // WRITEENABLE=1;                 
+                ALUOP=4'b0001;   
+                SELECTWRITE=1; 
+                READ=1;                   
             end
 
             //ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI, 
             7'b0010011 : begin
+                IMMflag=1;
                 case (func3)
-                    3'b000:       
-                    3'b010: 
+                    3'b000:  
+                        ALUOP= 5'b00001;
+                        
+                    3'b010:
+                        ALUOP=5'b10001;
+                      
+
                     3'b011: 
+                        ALUOP=5'b10010;
+                     
                     3'b100:
+                        ALUOP=5'b00100;  //XORI
+                  
                     3'b110:
+                        ALUOP=5'b00011;   //ORI
+                 
                     3'b111:
+                        ALUOP=5'b00010;   //ANDI
+                 
                     3'b001:
+                        ALUOP=5'b00101;  //SLLI
+           
+                       
                     3'b101:
+                        
                         case (func7)
                             7'b0000000:
+                                ALUOP=5'b00110;  //SRLI
+
                             7'b0100000: 
+                                ALUOP=5'b00111;  //SRAI
                         
                     
                         endcase
                    
                 endcase
-                // ALUOP=3'b000; SUBflag=0; IMMflag=1;    
-                // WRITEENABLE=1;                 
+               
+                IMMflag=1;    
+                WRITEENABLE=1;                 
             end
 
             //ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND, 
@@ -117,190 +139,174 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,SUBflag,IMMflag,Jumpflag,BEQfla
                     7'b0100000: 
                         case (func3)
                             3'b000:        //sub instruction
-                                ALUOP=3'b001; SUBflag=1; IMMflag=0;  
+                                ALUOP=5'b01000;  IMMflag=0;  
                                 WRITEENABLE=1;
                             
                             3'b101:       //SRA
-                                ALUOP=3'b101; SUBflag=0; IMMflag=0; ShiftSignal =2;
+                                ALUOP=5'b00111;  IMMflag=0; 
                                 WRITEENABLE=1;
                         endcase
                     7'b0000000: 
                         case (func3)
                             3'b000:        //ADD instruction
-                                ALUOP=3'b001; SUBflag=0; IMMflag=0;    
+                                ALUOP=5'b00001;  IMMflag=0;    
                                 WRITEENABLE=1;
                             3'b001:        //SLL
-                                ALUOP=3'b101; SUBflag=0; IMMflag=0; ShiftSignal =0;
+                                ALUOP=5'b00101; IMMflag=0; 
                                 WRITEENABLE=1; 
                             3'b010:        //SLT
+                                ALUOP=5'b10001;  IMMflag=0; 
+                                WRITEENABLE=1; 
                             3'b011:        //SLTU
+                                ALUOP=5'b10010;
+                                IMMflag=0; 
+                                WRITEENABLE=1; 
                             3'b100:        //XOR
+                                ALUOP=5'b00100;
+                                IMMflag=0; 
+                                WRITEENABLE=1; 
                             3'b101:        //SRL
-                                ALUOP=3'b101; SUBflag=0; IMMflag=0; ShiftSignal =1;
+                                ALUOP= 5'b00110; IMMflag=0;
                                 WRITEENABLE=1; 
                             3'b110:        //OR
+                                ALUOP= 5'b00011;
+                                IMMflag=0; 
+                                WRITEENABLE=1;
                             3'b111:        //AND
+                                ALUOP= 5'b00010;
+                                IMMflag=0; 
+                                WRITEENABLE=1;
                         endcase
                     
                     //MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU
 
                     7'b0000001: 
+                   
                         case (func3)
                             3'b000:        //MUL
-                                ALUOP=3'b100; SUBflag=0; IMMflag=0; 
-                                WRITEENABLE=1; 
+                                ALUOP=5'b01001;
+                                
+                                
                             3'b001:        //MULH
+                                ALUOP=5'b01010;
+                                
                             3'b010:        //MULHSU
+                                ALUOP= 5'b01100;
+                               
                             3'b011:        //MULHU
+                                ALUOP=5'b01011;
+                              
                             3'b100:        //DIV
+                                ALUOP=5'b01101;
                             3'b101:        //DIVU
+                                ALUOP=5'b01110;
+
                             3'b110:        //REM
+                                ALUOP=5'b01111;
+
+
                             3'b111:        //REMU
+                                ALUOP=5'b10000;
+
+                            
                         endcase
+                        WRITEENABLE=1; 
                     
                 endcase
-                // ALUOP=3'b000; SUBflag=0; IMMflag=1;    
-                // WRITEENABLE=1;                 
+                            
             end
 
             //SB, SH, SW, 
             7'b0100011 : begin
+                ALUOP=5'b00000;
                 case (func3)
                     3'b000:        //SB
+                        STORESIGNAL=1;
                         
                     3'b001:        //SH
+                        STORESIGNAL=2;
                     3'b010:        //SW
+                        STORESIGNAL=3;
                     
                 endcase
-                // ALUOP=3'b000; SUBflag=0; IMMflag=1;    
-                // WRITEENABLE=1;                 
+                READ = 0;
+                WRITE = 1;
+                             
             end
 
             //BEQ, BNE, BLT, BGE, BLTU, BGEU
             7'b1100011 : begin
                 case (func3)
                     3'b000:  //BEQ---
-                        //It should goes to add in alu and subflag should be 1 
-                        //because here the operation is subtract
-                        ALUOP=3'b001; SUBflag=1; IMMflag=0; 
-                        //BEQflag to identify the beq instruction
-                        BEQflag=1;
-                        //Writing is disable
-                        WRITEENABLE=0; 
-                    3'b001:  //BNE--
-                        //It should goes to add in alu and subflag should be 1 
-                        //because here the operation is subtract
-                        ALUOP=3'b001; SUBflag=1; IMMflag=0; 
-                        BNEQflag=1;
-                        //Writing is disable
-                        WRITEENABLE=0; 
-                    3'b100: 
-                    3'b101:
-                    3'b110:
-                    3'b111: 
-                   
+                        BRANCHSIGNAL=1;
+                        ALUOP=5'b01000; 
                         
-                    
+                    3'b001:  //BNE--
+                        BRANCHSIGNAL=2;
+                        ALUOP=5'b01000; 
+
+
+                    3'b100: 
+                        BRANCHSIGNAL=3;
+                        ALUOP=5'b10001; 
+
+                        
+                    3'b101:
+                        BRANCHSIGNAL=4;
+                        ALUOP=5'b10001; 
+
+                    3'b110:
+                        BRANCHSIGNAL=5;
+                        
+                        ALUOP=5'b10010; 
+
+                    3'b111: 
+                        BRANCHSIGNAL=6;
+                        ALUOP=5'b10010; 
+
+                                                         
                 endcase
-                // ALUOP=3'b000; SUBflag=0; IMMflag=1;    
-                // WRITEENABLE=1;                 
-            end
-            //LUI
-            7'b0110111 : begin
-                // ALUOP=3'b000; SUBflag=0; IMMflag=1;    
-                // WRITEENABLE=1;                 
-            end
-            
-            //AUIPC
-            7'b0010111 : begin
-                // ALUOP=3'b000; SUBflag=0; IMMflag=1;    
-                // WRITEENABLE=1;                 
+
+                
+                IMMflag=0; 
+                //Writing is disable
+                WRITEENABLE=0; 
+                            
             end
 
+
+
+            //LUI
+            7'b0110111 : begin
+
+                ALUOP=5'b00000;
+                LOADSIGNAL=6;                           
+                IMMflag=1;    
+                WRITEENABLE=1;      
+                         
+            end
+
+           
+            //AUIPC
+            7'b0010111 : begin
+                ALUOP=5'b00001;
+                LOADSIGNAL=6; 
+                IMMflag=1;    
+                WRITEENABLE=1;                 
+            end
             //JAL-----
             7'b1101111 : begin
-                // SUBflag=0; IMMflag=0; Jumpflag=1;    
-                // WRITEENABLE=0;                 
+                Jumpflag=1;
+                          
             end
 
             //JALR
             7'b1100111 : begin
-                // ALUOP=3'b000; SUBflag=0; IMMflag=1;    
-                // WRITEENABLE=1;                 
+                Jumpflag=1;
+                              
             end
 
-            
-
-
-
-
-
-
-            
-
-            
-            
-
-           
-
-
-            
-            // //====================changes======================================
-            // //If it is a lwd instruction
-            // 8'b00001000 : begin
-                
-            //     ALUOP=3'b000; IMMflag=0;    
-            //    // WRITEENABLE=1; 
-            //     READ=1;           
-            //     WRITE=0;
-            //     SELECTWRITE=1;
-            //     Jumpflag=0;
-            //     BEQflag=0;
-            //     BNEQflag=0;
-                
-            // end
-            // //If it is a lwi instruction
-            // 8'b00001001 : begin
-                
-            //     ALUOP=3'b000; IMMflag=1;
-            //   // WRITEENABLE=1; 
-            //     READ=1;
-            //     WRITE=0;
-            //     SELECTWRITE=1;
-            //     Jumpflag=0;
-            //     BEQflag=0;
-            //     BNEQflag=0;
-            // end
-
-            // //If it is a swd instruction
-            // 8'b00001010 : begin
-                
-            //     ALUOP=3'b000; IMMflag=0;
-            //     WRITEENABLE=0; 
-            //     READ=0;
-            //     WRITE=1;
-            //     Jumpflag=0;
-            //     BEQflag=0;
-            //     BNEQflag=0;
-            //     SELECTWRITE=0;
-                
-            // end
-
-            // //If it is a swi instruction
-            // 8'b00001011 : begin
-                
-            //     ALUOP=3'b000; IMMflag=1; 
-            //     WRITEENABLE=0; 
-            //     READ=0;
-            //     WRITE=1; 
-            //     Jumpflag=0;
-            //     BEQflag=0;
-            //     BNEQflag=0;
-            //     SELECTWRITE=0;
-                
-            // end
-
-            // //==========================================================================
+          
     
         endcase
         
@@ -310,84 +316,5 @@ endmodule
 //-----------------------------------------------------------------------------------------------------------
 
 
-
-//---------------------------------TEST BENCH FOR CPU--------------------------------------------------------
-
-module cpu_tb;
-    //registers and wires to store PC value, Instruction and clock,reset signals
-    reg CLK, RESET;
-    wire [31:0] PC;
-    wire [31:0] INSTRUCTION;
-    wire [7:0] ADDRESS,WRITEDATA,READDATA;
-    wire READ,WRITE,BUSYWAIT;
-    
-    /* 
-    ------------------------
-     SIMPLE INSTRUCTION MEM
-    ------------------------
-    */
-    
-    // Initialize an array of registers (8x1024) named 'instr_mem' to be used as instruction memory
-    reg [31:0] instr_mem[1023:0];
-    // Create combinational logic to support CPU instruction fetching, given the Program Counter(PC) value 
-    //      
-    /*
-     * Instruction memory read(#2 - two time unit delay)-instruction fetching
-     */
-    assign #2  INSTRUCTION[7:0]=instr_mem[PC];
-    assign #2  INSTRUCTION[15:8]=instr_mem[PC+1];
-    assign #2  INSTRUCTION[23:16]=instr_mem[PC+2];
-    assign #2  INSTRUCTION[31:24]=instr_mem[PC+3];
-    
-
-    initial
-    begin
-        // Initialize instruction memory with the set of instructions you need execute on CPU       
-        // loading instr_mem content from instr_mem.mem file
-        $readmemb("programmer/instr_mem.mem", instr_mem);
-
-    end
-    //======================changes=============================================================
-    /* 
-    -----
-     CPU
-    -----
-    */
-    //Create a instance of cpu
-    cpu cpu1(PC, WRITEDATA, READ, WRITE, ADDRESS, INSTRUCTION, CLK, RESET, READDATA, BUSYWAIT);
-    
-    //create instance of data memory
-    data_memory dmem1(CLK, RESET,READ,WRITE,ADDRESS,WRITEDATA,READDATA,BUSYWAIT);
-
-    //==========================================================================================
-
-    initial
-    begin
-        $monitor($time,"Contents of Mem after reading data file: %b \n",INSTRUCTION);
-        // generate files needed to plot the waveform using GTKWave
-        $dumpfile("cpu_wavedata.vcd");
-		$dumpvars(0, cpu_tb);
-        
-        CLK = 1'b0;
-        RESET = 1'b0;
-        
-        // Reset the CPU (by giving a pulse to RESET signal) to start the program execution
-        #2 RESET= 1'b1;    //Reset the cpu to start
-        #5 RESET= 1'b0;
-
-        // finish simulation after some time
-        #800
-        $finish;
-        
-    end
-    
-    // clock signal generation
-    always
-        //Clock cycle is 8 time units so it should be change after 4 time units
-        #4 CLK = ~CLK;
-        
-endmodule
-
-//-----------------------------------------------------------------------------------------------------------
 
 
