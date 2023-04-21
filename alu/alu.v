@@ -21,8 +21,7 @@ module alu(DATA1, DATA2, SELECT, RESULT);
         case(SELECT)
 
         5'b0000: RESULT = RESULT1;   //when select is 0000 assign the result of the FORWARD module
-        5'b0001: RESULT = RESULT2;   //when select is 0001 assign the result of the ADD module
-        5'b0001: RESULT = RESULT2;   //when select is 0001 assign the result of the ADD module    
+        5'b0001: RESULT = RESULT2;   //when select is 0001 assign the result of the ADD module  
         5'b0010: RESULT = RESULT3;   //when select is 0010 assign the result of the AND module
         5'b0011: RESULT = RESULT4;   //when select is 0011 assign the result of the OR module
         5'b0100: RESULT = RESULT5;   //when select is 0100 assign the result of the XOR module
@@ -86,18 +85,22 @@ endmodule
 module XOR(data1,data2,result5);
     //port declarations  
     input [31:0] data1,data2;
-    output [31:0] result4;
+    output [31:0] result5;
 
-    assign #1 result4 = data1 ^ data2;   //after 1 unit delay perform bit wise or on data1 and data2 and assign to the result4 
+    assign #1 result5 = data1 ^ data2;   //after 1 unit delay perform bit wise or on data1 and data2 and assign to the result4 
 endmodule
 
 
 module Shift(data1,data2,result6,signal);
     //port declarations  
     input [31:0] data1,data2;
-    output [31:0] result4;
+    output [31:0] result6;
 
-    assign #1 result4 = data1 | data2;   //after 1 unit delay perform bit wise or on data1 and data2 and assign to the result4 
+    assign #2 SLL_RESULT = data1 << data2;      // Logical Left Shift
+    assign #2 SRL_RESULT = data1 >> data2;      // Logical Right Shift
+    assign #2 SRA_RESULT = data1 >>> data2;     // Arithmetic Right shift
+
+    assign #1 result6 = data1 | data2;   //after 1 unit delay perform bit wise or on data1 and data2 and assign to the result4 
 endmodule
 
 
@@ -105,11 +108,11 @@ module Mul(data1,data2,result7,signal);
     //port declarations  
     input [31:0] data1,data2;
     input [1:0] signal;
-    output [31:0] result4;
+    output [31:0] result7;
 
     
-    assign #3 MUL_RESULT = DATA1 * DATA2;       // Multiplication
-    assign #3 MULH_RESULT = DATA1 * DATA2;      // Multiplication High Signed x Signed
-    assign #3 MULHU_RESULT = $unsigned(DATA1) * $unsigned(DATA2);     // Multiplication High Unsigned x Unsigned
-    assign #3 MULHSU_RESULT = $signed(DATA1) * $unsigned(DATA2);     // Multiplication High Signed x UnSigned
+    assign #3 MUL_RESULT = data1 * data2;       // Multiplication
+    assign #3 MULH_RESULT = data1 * data2;      // Multiplication High Signed x Signed
+    assign #3 MULHU_RESULT = $unsigned(data1) * $unsigned(data2);     // Multiplication High Unsigned x Unsigned
+    assign #3 MULHSU_RESULT = $signed(data1) * $unsigned(data2);     // Multiplication High Signed x UnSigned
 endmodule
