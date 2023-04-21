@@ -1,11 +1,11 @@
 //ALU module 
 //this module chooses the relevant result according to the select and pass it to final RESULT register
-module alu(DATA1, DATA2, SELECT, RESULT);
+module alu(DATA1, DATA2, SELECT, RESULT, EQ, LT, LTU);
     //port declarations
     input [31:0] DATA1, DATA2;
     input [4:0] SELECT;
     output reg [31:0] RESULT;    //RESULT should be a register because it stores the value
-
+    output wire EQ, LT, LTU;
     wire [31:0] FORWARD_RESULT,ADD_RESULT,AND_RESULT, OR_RESULT, XOR_RESULT,SLL_RESULT, SRL_RESULT, SRA_RESULT,SUB_RESULT,  MUL_RESULT,MULH_RESULT, MULHU_RESULT, MULHSU_RESULT, DIV_RESULT, DIVU_RESULT, REM_RESULT, REMU_RESULT,SLT_RESULT, SLTU_RESULT;
    
 
@@ -36,8 +36,7 @@ module alu(DATA1, DATA2, SELECT, RESULT);
         case(SELECT)
 
         5'b00000: RESULT = FORWARD_RESULT;   //when select is 0000 assign the result of the FORWARD module
-        5'b00001: RESULT = ADD_RESULT;   //when select is 0001 assign the result of the ADD module
-        //5'b0001: RESULT = RESULT2;   //when select is 0001 assign the result of the ADD module    
+        5'b00001: RESULT = ADD_RESULT;   //when select is 0001 assign the result of the ADD module   
         5'b00010: RESULT = AND_RESULT;   //when select is 0010 assign the result of the AND module
         5'b00011: RESULT = OR_RESULT;   //when select is 0011 assign the result of the OR module
         5'b00100: RESULT = XOR_RESULT;   //when select is 0100 assign the result of the XOR module
@@ -59,7 +58,7 @@ module alu(DATA1, DATA2, SELECT, RESULT);
         5'b10001: RESULT = SLT_RESULT;   //when select is 0001 assign the result of the ADD module    
         5'b10010: RESULT = SLTU_RESULT;   //when select is 0001 assign the result of the ADD module    
         
-        default RESULT = 8'bxxxxxxxx;   //default result is 8'bxxxxxxxx
+        default RESULT = 32'bxxxxxxxxxxxxxxxxxxxxxxxx;   //default result is 32'bxxxxxxxxxxxxxxxxxxxxxxxx
 
         endcase
     end
@@ -73,7 +72,6 @@ module FORWARD(data2,result1);
     input [31:0] data2;
     // input [2:0] signal;
     output [31:0] result1;
-
 
     assign #1 result1 = data2;   //after 1 unit delay assign the value in data2 to result1
 endmodule
@@ -115,7 +113,7 @@ endmodule
 module XOR(data1,data2,result5);
     //port declarations  
     input [31:0] data1,data2;
-    output [31:0] result4;
+    output [31:0] result5;
 
     assign #1 result4 = data1 ^ data2;   //after 1 unit delay perform bit wise xor on data1 and data2 and assign to the result4 
 endmodule
@@ -128,6 +126,7 @@ module SLL(data1,data2,result);
 
     assign #2 result = data1 << data2;   
 endmodule
+
 module SRL(data1,data2,result);
     //port declarations
     input [31:0] data1,data2;
@@ -135,6 +134,7 @@ module SRL(data1,data2,result);
 
     assign #2 result9 = data1 >> data2;   
 endmodule
+
 module SRA(data1,data2,result);
     //port declarations
     input [31:0] data1,data2;
@@ -142,12 +142,14 @@ module SRA(data1,data2,result);
 
     assign #2 result = data1 >>> data2; 
 endmodule
-module SUB(data1,data2,result);
+
+module SUB(data1,data2,result, eq);
     //port declarations
     input [31:0] data1,data2;
     output [31:0] result;
 
     assign #2 result = data1 - data2;   
+    assign #2 eq = (result == 0) ? 1 : 0; 
 endmodule
 
 module MUL(data1,data2,result);
@@ -166,6 +168,7 @@ module MULH(data1,data2,result);
     assign temp_product = data1 * data2;
     assign #2 result = temp_product>>32; 
 endmodule
+
 module MULHU(data1,data2,result);
     //port declarations
     input [31:0] data1,data2;
@@ -174,6 +177,7 @@ module MULHU(data1,data2,result);
     assign temp_product =$unsigned(data1) * $unsigned(data2);
     assign #2 result = temp_product>>32;   
 endmodule
+
 module MULHSU(data1,data2,result);
     //port declarations
     input [31:0] data1,data2;
@@ -186,13 +190,10 @@ endmodule
 module DIV(data1,data2,result);
     //port declarations
     input [31:0] data1,data2;
-  
-    output [31:0] result;
-    
-    assign #2 result = data1 / data2;  
-    
-endmodule
+    output [31:0] result4;
 
+    assign #1 result4 = data1 | data2;   //after 1 unit delay perform bit wise or on data1 and data2 and assign to the result4 
+endmodule
 
 module DIVU(data1,data2,result);
     //port declarations
@@ -223,21 +224,23 @@ module REMU(data1,data2,result);
     
 endmodule
 
-module SLT(data1,data2,result);
+module SLT(data1,data2,result,lt);
     //port declarations
     input [31:0] data1,data2;
   
     output [31:0] result;
     
     assign #2 result = ($signed(data1) < $signed(data1=2)) ? 32'd1 : 32'd0;   
-    
+    assign #2 lt = (result == 1) ? 1 : 0;
 endmodule
-module SLTU(data1,data2,result);
+
+module SLTU(data1,data2,result,ltu);
     //port declarations
     input [31:0] data1,data2;
-  
+
     output [31:0] result;
+
     
-    assign #2 result =  ($unsigned(data1) < $unsigned(data2)) ? 32'd1 : 32'd0;  
-    
+    assign #2 result = ($unsigned(data1) < $unsigned(data2)) ? 32'd1 : 32'd0;
+    assign #2 ltu = (result == 1) ? 1 : 0;   
 endmodule
