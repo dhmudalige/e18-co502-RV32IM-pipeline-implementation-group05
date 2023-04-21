@@ -4,23 +4,46 @@
  * 
  */
 
-module branchLogic(OUTPUT,ZERO,NOTZERO,SIGNAL);
+module branchLogic(OUTPUT,EQ,LT,LTU,SIGNAL);
     //declare input,output
-    input [2:0] ALU_SIGNAL,SIGNAL;
-    output reg [1:0]OUTPUT; 
+    input [2:0] SIGNAL;
+    input EQ,LT,LTU;
+    output reg OUTPUT; 
 
     //always block to add two inputs
     always @(*) begin
         #1;
+        OUTPUT = 0;
         case (SIGNAL)
-            1,3,5: 
-                if (ZERO) begin
+            1:                //BEQ
+                if (EQ) begin
 
                     OUTPUT=1;
                 end
                 
-            2,4,6:
-                if(NOTZERO) begin
+            2:                //BNE
+                if (!EQ) begin
+
+                    OUTPUT=1;
+                end
+            3:                //BLT
+                if (LT) begin
+
+                    OUTPUT=1;
+                end
+                
+            4:                //BGE
+                if (!LT) begin
+
+                    OUTPUT=1;
+                end
+            5:                //BLTU
+                if (LTU) begin
+
+                    OUTPUT=1;
+                end
+            6:                //BGEU
+                if(!LTU) begin
                     OUTPUT=1;
                 end
 
