@@ -70,6 +70,7 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
         case (OPCODE)
             //LB, LH, LW, LBU, LHU,
             7'b0000011 : begin
+                #1;
                 case (func3)
                     3'b000:  //LB
                         LOADSIGNAL=1;
@@ -90,6 +91,7 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
 
             //ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI, 
             7'b0010011 : begin
+                #1;
                 IMMflag=1;
                 case (func3)
                     3'b000:  
@@ -135,6 +137,7 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
 
             //ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND, 
             7'b0110011 : begin
+                #1;
                 case (func7)
                     7'b0100000: 
                         case (func3)
@@ -218,6 +221,7 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
 
             //SB, SH, SW, 
             7'b0100011 : begin
+                #1;
                 ALUOP=5'b00000;
                 case (func3)
                     3'b000:        //SB
@@ -236,6 +240,7 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
 
             //BEQ, BNE, BLT, BGE, BLTU, BGEU
             7'b1100011 : begin
+                #1;
                 case (func3)
                     3'b000:  //BEQ---
                         BRANCHSIGNAL=1;
@@ -278,6 +283,7 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
 
             //LUI
             7'b0110111 : begin
+                #1;
 
                 ALUOP=5'b00000;
                 LOADSIGNAL=6;                           
@@ -289,6 +295,7 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
            
             //AUIPC
             7'b0010111 : begin
+                #1;
                 ALUOP=5'b00001;
                 LOADSIGNAL=6; 
                 IMMflag=1;    
@@ -296,12 +303,14 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
             end
             //JAL-----
             7'b1101111 : begin
+                #1;
                 Jumpflag=1;
                           
             end
 
             //JALR
             7'b1100111 : begin
+                #1;
                 Jumpflag=1;
                               
             end

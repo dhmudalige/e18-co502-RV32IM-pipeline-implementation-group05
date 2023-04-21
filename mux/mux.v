@@ -12,6 +12,7 @@ module mux(OUTPUT,INPUT1,INPUT2,ENABLE);
 
     //always block to SELECT inputs
     always @(*) begin
+        #1;
      
         case(ENABLE)
 

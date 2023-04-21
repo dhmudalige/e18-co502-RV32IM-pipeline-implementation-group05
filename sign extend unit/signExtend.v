@@ -18,30 +18,38 @@ module signExtend(INSTRUCTION,OUTPUT);
             
             //LOAD
             7'b0000011: 
+                #1;
                 assign OUTPUT = {{21{INSTRUCTION[31]}},INSTRUCTION[30:20]};
             //JALR
-            7'b1100111 : 
+            7'b1100111:
+                #1; 
                 assign OUTPUT = {{21{INSTRUCTION[31]}},INSTRUCTION[30:20]};
             //I TYPE
             7'b0010011:
+                #1;
                 assign OUTPUT = {{21{INSTRUCTION[31]}},INSTRUCTION[30:20]};
 
             //STORE
             7'b0100011:
+                #1;
                 assign OUTPUT = {{21{INSTRUCTION[31]}},INSTRUCTION[30:25],INSTRUCTION[11:7]};
             
             //B TYPE
             7'b1100011:
+                #1;
                 assign OUTPUT = {{19{INSTRUCTION[31]}},INSTRUCTION[7],INSTRUCTION[30:25],INSTRUCTION[11:8],2'b00};
             
             //LUI
             7'b0110111 :
+                #1;
                 assign OUTPUT = {INSTRUCTION[31:12],{12{1'b0}}};
             //AUIPC
             7'b0010111:
+                #1;
                 assign OUTPUT = {INSTRUCTION[31:12],{12{1'b0}}};
             //JAL
             7'b1101111 :
+                #1;
                 assign OUTPUT = {{12{INSTRUCTION[31]}},INSTRUCTION[19:12],INSTRUCTION[20],INSTRUCTION[30:21],1'b0};
 
             

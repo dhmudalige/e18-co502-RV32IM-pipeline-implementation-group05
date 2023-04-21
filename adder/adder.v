@@ -12,7 +12,7 @@ module adder(OUTPUT,INPUT1,INPUT2);
 
     //always block to add two inputs
     always @(*) begin
-        #1;
+        #2;
         OUTPUT = INPUT1+INPUT2;
     end
 
