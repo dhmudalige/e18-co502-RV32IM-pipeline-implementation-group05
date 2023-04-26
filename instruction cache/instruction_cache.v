@@ -28,9 +28,11 @@ module instruction_cache(
     reg [2:0] inst_tag [7:0];          
     reg [9:0] address;                 
 
-    wire valid;         
-    wire [2:0] tag;     
-    reg [127:0] data;   
+    // Defining Memory Block Arrays (Reg Arrays) 
+    // of the Instruction Cache
+    wire valid [0:7];         
+    wire [24:0] tag [0:7];     
+    reg [127:0] data [0:7];   
 
     always @ (PC) begin
 		address = {PC[9:0]};	
