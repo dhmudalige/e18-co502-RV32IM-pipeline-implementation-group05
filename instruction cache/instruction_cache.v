@@ -20,7 +20,7 @@ module instruction_cache(
     input inst_busywait;               
     output reg inst_read;              
     output [31:0] instruction;          
-    output reg [5:0] inst_address;     
+    output reg [27:0] inst_address;     
     output reg busywait;               
 
     reg [127:0] inst_data [7:0];       
@@ -89,18 +89,18 @@ module instruction_cache(
         case(state)
             IDLE: begin
 					inst_read = 0;
-					inst_address = 6'dx;
+					inst_address = 28'dx;
 					busywait = 0;
 				end
          
             MEM_READ: begin
 					inst_read = 1;                    
-					inst_address = {address[9:4]};  
+					inst_address = {address[31:4]};  
 				end
             
             CACHE_UPDATE: begin
 					inst_read = 0;
-					inst_address = 6'dx;
+					inst_address = 28'dx;
 
 					#1
 					inst_data[address[6:4]] = inst_readdata;   
