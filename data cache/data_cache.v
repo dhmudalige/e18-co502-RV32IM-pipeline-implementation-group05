@@ -22,15 +22,14 @@ module data_cache (
     input reset;
     input read;                        
     input write;                       
-    input [31:0] address;                
-    input [7:0] writedata;              
+    input [31:0] address, writedata;              
     input mem_busywait;                
-    input [31:0] mem_readdata;         
+    input [127:0] mem_readdata;         
     output [7:0] readdata;            
     output reg mem_read, mem_write;    
     output reg busywait;             
-    output reg [5:0] mem_address;   
-    output reg [31:0] mem_writedata;   
+    output reg [28:0] mem_address;   
+    output reg [127:0] mem_writedata;   
 
     
     /*
@@ -38,7 +37,8 @@ module data_cache (
     ...
     ...
     */
-
+    // Defining Memory Block Arrays (Reg Arrays) 
+    // of the Data Cache
     reg cacheValid [7:0];              
     reg cacheDirty [7:0];             
     reg [2:0] cacheTag [7:0];         
@@ -161,8 +161,8 @@ module data_cache (
             IDLE: begin
                 mem_read = 0;
                 mem_write = 0;
-                mem_address = 6'dx;
-                mem_writedata = 32'dx;
+                mem_address = 28'dx;
+                mem_writedata = 128'dx;
                 busywait = 0;
             end
          
@@ -183,8 +183,8 @@ module data_cache (
             CACHE_UPDATE: begin
                 mem_read = 0;
                 mem_write = 0;
-                mem_address = 6'dx;
-                mem_writedata = 32'dx;
+                mem_address = 28'dx;
+                mem_writedata = 128'dx;
 
                 #1
                 cache[address[7:4]] = mem_readdata;   
