@@ -2,7 +2,7 @@
 
 module instruction_cache(
     // Port declaration
-	PC,
+	pc_address,
     clock,
     reset,
     inst_readdata,
@@ -13,7 +13,7 @@ module instruction_cache(
     busywait
 );
 
-    input [31:0] PC;                    
+    input [31:0] pc_address;                    
     input clock;
     input reset;
     input [127:0] inst_readdata;        
@@ -34,8 +34,8 @@ module instruction_cache(
     wire [24:0] tag [0:7];     
     reg [127:0] data [0:7];   
 
-    always @ (PC) begin
-		address = {PC[9:0]};	
+    always @ (pc_address) begin
+		address = {pc_address[9:0]};	
 		busywait = 1'b1;
     end
 
