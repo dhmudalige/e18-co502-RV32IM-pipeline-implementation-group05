@@ -25,10 +25,10 @@ module data_cache (
     input [31:0] address, writedata;              
     input mem_busywait;                
     input [127:0] mem_readdata;         
-    output [7:0] readdata;            
+    output [31:0] readdata;            
     output reg mem_read, mem_write;    
     output reg busywait;             
-    output reg [28:0] mem_address;   
+    output reg [27:0] mem_address;   
     output reg [127:0] mem_writedata;   
 
     
