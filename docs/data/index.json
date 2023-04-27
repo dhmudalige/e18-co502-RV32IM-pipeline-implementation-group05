@@ -1,0 +1,30 @@
+{
+    "team": [
+        {
+            "name": "A.K.D.A.S. Abeywickrama",
+            "email": "e18010@eng.pdn.ac.lk",
+            "eNumber": "E/18/010"
+        },
+        {
+            "name": "D.H. Mudalige",
+            "email": "e18227@eng.pdn.ac.lk",
+            "eNumber": "E/18/227"
+        },
+        {
+            "name": "D.W.S.N. Sewwandi",
+            "email": "e18329@eng.pdn.ac.lk",
+            "eNumber": "E/18/329"
+        }
+    ],
+    "supervisors": [
+        {
+            "name": "Dr. Mahanama Wickramasighe",
+            "email": "mahanamaw@eng.pdn.ac.lk"
+        }
+        {
+            "name": "Dr. Isuru Nawinne",
+            "email": "isurunawinne@eng.pdn.ac.lk"
+        }
+    ],
+    "tags": ["Computer Architecture", "RISC-V", "RV32IM"]
+}
