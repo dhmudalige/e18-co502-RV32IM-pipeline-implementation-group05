@@ -17,17 +17,17 @@ module alu(DATA1, DATA2, SELECT, RESULT, EQ, LT, LTU);
     SLL unit6(DATA1,DATA2,SLL_RESULT);      //create an instance of each OR module
     SRL unit7(DATA1,DATA2,SRL_RESULT);      //create an instance of each OR module
     SRA unit8(DATA1,DATA2,SRA_RESULT);      //create an instance of each OR module
-    SUB unit9(DATA1,DATA2,SUB_RESULT);      //create an instance of each OR module
+    SUB unit9(DATA1,DATA2,SUB_RESULT,EQ);      //create an instance of each OR module
     MUL unit10(DATA1,DATA2,MUL_RESULT);      //create an instance of each OR module
     MULH unit11(DATA1,DATA2,MULH_RESULT);      //create an instance of each OR module
     MULHU unit12(DATA1,DATA2,MULHU_RESULT);      //create an instance of each OR module
-    MULHSU unit12(DATA1,DATA2,MULHSU_RESULT);      //create an instance of each OR module   
-    DIV unit13(DATA1,DATA2,DIV_RESULT);      //create an instance of each OR module
-    DIVU unit14(DATA1,DATA2,DIVU_RESULT);      //create an instance of each OR module
-    REM unit15(DATA1,DATA2,REM_RESULT);      //create an instance of each OR module
-    REMU unit16(DATA1,DATA2,REMU_RESULT);      //create an instance of each OR module
-    SLT unit16(DATA1,DATA2,SLT_RESULT);      //create an instance of each OR module
-    SLTU unit16(DATA1,DATA2,SLTU_RESULT);      //create an instance of each OR module
+    MULHSU unit13(DATA1,DATA2,MULHSU_RESULT);      //create an instance of each OR module   
+    DIV unit14(DATA1,DATA2,DIV_RESULT);      //create an instance of each OR module
+    DIVU unit15(DATA1,DATA2,DIVU_RESULT);      //create an instance of each OR module
+    REM unit16(DATA1,DATA2,REM_RESULT);      //create an instance of each OR module
+    REMU unit17(DATA1,DATA2,REMU_RESULT);      //create an instance of each OR module
+    SLT unit18(DATA1,DATA2,SLT_RESULT,LT);      //create an instance of each OR module
+    SLTU unit19(DATA1,DATA2,SLTU_RESULT,LTU);      //create an instance of each OR module
     
 
     //this block excutes when the signals in the sensitive list changes
@@ -147,6 +147,7 @@ module SUB(data1,data2,result, eq);
     //port declarations
     input [31:0] data1,data2;
     output [31:0] result;
+    output eq;
 
     assign #2 result = data1 - data2;   
     assign #2 eq = (result == 0) ? 1 : 0; 
@@ -190,9 +191,9 @@ endmodule
 module DIV(data1,data2,result);
     //port declarations
     input [31:0] data1,data2;
-    output [31:0] result4;
+    output [31:0] result;
 
-    assign #1 result4 = data1 | data2;   //after 1 unit delay perform bit wise or on data1 and data2 and assign to the result4 
+    assign #1 result = data1 | data2;   //after 1 unit delay perform bit wise or on data1 and data2 and assign to the result4 
 endmodule
 
 module DIVU(data1,data2,result);
@@ -229,8 +230,9 @@ module SLT(data1,data2,result,lt);
     input [31:0] data1,data2;
   
     output [31:0] result;
+    output lt;
     
-    assign #2 result = ($signed(data1) < $signed(data1=2)) ? 32'd1 : 32'd0;   
+    assign #2 result = ($signed(data1) < $signed(data2)) ? 32'd1 : 32'd0;   
     assign #2 lt = (result == 1) ? 1 : 0;
 endmodule
 
@@ -239,6 +241,7 @@ module SLTU(data1,data2,result,ltu);
     input [31:0] data1,data2;
 
     output [31:0] result;
+    output ltu;
 
     
     assign #2 result = ($unsigned(data1) < $unsigned(data2)) ? 32'd1 : 32'd0;
