@@ -21,6 +21,7 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
     * Declare inputs and outputs
     *
     */
+    input [31:0] INSTRUCTION;
     input [6:0] OPCODE; 
     input [2:0] func3;
     input [6:0] func7;
@@ -143,49 +144,71 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
                     7'b0100000: 
                         case (func3)
                             3'b000:        //sub instruction
-                                ALUOP=5'b01000;  IMMflag=0;  
+                                begin
+                                ALUOP=5'b01000; IMMflag=0;
                                 WRITEENABLE=1;
+                                end
                             
                             3'b101:       //SRA
-                                ALUOP=5'b00111;  IMMflag=0; 
+                                begin
+                                ALUOP=5'b00111;
+                                IMMflag=0;
                                 WRITEENABLE=1;
+                                end
                         endcase
                     7'b0000000: 
                         case (func3)
                             3'b000:        //ADD instruction
+                                begin
                                 ALUOP=5'b00001;  IMMflag=0;    
                                 WRITEENABLE=1;
+                                end
                             3'b001:        //SLL
+                                begin
                                 ALUOP=5'b00101; IMMflag=0; 
                                 WRITEENABLE=1; 
+                                end
                             3'b010:        //SLT
+                                begin
                                 ALUOP=5'b10001;  IMMflag=0; 
                                 WRITEENABLE=1; 
+                                end
                             3'b011:        //SLTU
+                                begin
                                 ALUOP=5'b10010;
                                 IMMflag=0; 
                                 WRITEENABLE=1; 
+                                end
                             3'b100:        //XOR
+                                begin
                                 ALUOP=5'b00100;
                                 IMMflag=0; 
                                 WRITEENABLE=1; 
+                                end
                             3'b101:        //SRL
+                                begin
                                 ALUOP= 5'b00110; IMMflag=0;
                                 WRITEENABLE=1; 
+                                end
                             3'b110:        //OR
+                                begin
                                 ALUOP= 5'b00011;
                                 IMMflag=0; 
                                 WRITEENABLE=1;
+                                end
                             3'b111:        //AND
+                                begin
                                 ALUOP= 5'b00010;
                                 IMMflag=0; 
                                 WRITEENABLE=1;
+                                end
                         endcase
                     
                     //MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU
 
-                    7'b0000001: 
-                   
+                    7'b0000001: begin
+                        WRITEENABLE=1; 
+                      
                         case (func3)
                             3'b000:        //MUL
                                 ALUOP=5'b01001;
@@ -214,7 +237,10 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
 
                             
                         endcase
-                        WRITEENABLE=1; 
+                    end
+
+                        
+                     
                     
                 endcase
                             
@@ -244,31 +270,42 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
                 #1;
                 case (func3)
                     3'b000:  //BEQ---
+                    begin
                         BRANCHSIGNAL=1;
                         ALUOP=5'b01000; 
-                        
+                        end
                     3'b001:  //BNE--
+                    begin
                         BRANCHSIGNAL=2;
                         ALUOP=5'b01000; 
+                        end
 
 
                     3'b100: 
+                    begin
                         BRANCHSIGNAL=3;
                         ALUOP=5'b10001; 
+                        end
 
                         
                     3'b101:
+                    begin
                         BRANCHSIGNAL=4;
                         ALUOP=5'b10001; 
+                        end
 
                     3'b110:
+                    begin
                         BRANCHSIGNAL=5;
                         
                         ALUOP=5'b10010; 
+                        end
 
                     3'b111: 
+                    begin
                         BRANCHSIGNAL=6;
                         ALUOP=5'b10010; 
+                        end
 
                                                          
                 endcase

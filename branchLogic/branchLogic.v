@@ -16,39 +16,40 @@ module branchLogic(OUTPUT,EQ,LT,LTU,SIGNAL);
         OUTPUT = 0;
         case (SIGNAL)
             1:                //BEQ
-                #1;
-                if (EQ) begin
-
+                #1
+                if(EQ) begin
                     OUTPUT=1;
+                    
                 end
                 
+                
             2:                //BNE
-                #1;
+                #1
                 if (!EQ) begin
 
                     OUTPUT=1;
                 end
             3:                //BLT
-                #1;
+                #1
                 if (LT) begin
 
                     OUTPUT=1;
                 end
                 
             4:                //BGE
-                #1;
+                #1
                 if (!LT) begin
 
                     OUTPUT=1;
                 end
             5:                //BLTU
-                #1;
+                #1
                 if (LTU) begin
 
                     OUTPUT=1;
                 end
             6:                //BGEU
-                #1;
+                #1
                 if(!LTU) begin
                     OUTPUT=1;
                 end
