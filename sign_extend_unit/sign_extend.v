@@ -1,9 +1,9 @@
 
 /*
- * signExtend module - 
+ * sign_extend module - 
  * 
  */
-module signExtend(INSTRUCTION,OUTPUT);
+module sign_extend(INSTRUCTION,OUTPUT);
     //declare input,output
     input [31:0] INSTRUCTION;           
     
