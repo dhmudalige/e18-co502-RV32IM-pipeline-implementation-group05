@@ -1,10 +1,10 @@
 
 /*
- * branch module - 
+ * branching unit 
  * 
  */
 
-module branchLogic(OUTPUT,EQ,LT,LTU,SIGNAL);
+module branch_logics(OUTPUT,EQ,LT,LTU,SIGNAL);
     //declare input,output
     input [2:0] SIGNAL;
     input EQ,LT,LTU;
