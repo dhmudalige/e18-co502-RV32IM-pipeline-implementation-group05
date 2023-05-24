@@ -22,15 +22,14 @@ module data_cache (
     input reset;
     input read;                        
     input write;                       
-    input [7:0] address;                
-    input [7:0] writedata;              
+    input [31:0] address, writedata;              
     input mem_busywait;                
-    input [31:0] mem_readdata;         
-    output [7:0] readdata;            
+    input [127:0] mem_readdata;         
+    output [31:0] readdata;            
     output reg mem_read, mem_write;    
     output reg busywait;             
-    output reg [5:0] mem_address;   
-    output reg [31:0] mem_writedata;   
+    output reg [27:0] mem_address;   
+    output reg [127:0] mem_writedata;   
 
     
     /*
@@ -38,7 +37,8 @@ module data_cache (
     ...
     ...
     */
-
+    // Defining Memory Block Arrays (Reg Arrays) 
+    // of the Data Cache
     reg cacheValid [7:0];              
     reg cacheDirty [7:0];             
     reg [2:0] cacheTag [7:0];         
@@ -52,8 +52,8 @@ module data_cache (
         for(i = 0; i < 8; i++) begin
             cacheValid[i] = 1'd0;
             cacheDirty[i] = 1'd0;
-            cacheTag[i] = 3'dx;
-            cache[i] = 32'dx;
+            cacheTag[i] = 24'dx;
+            cache[i] = 128'dx;
         end
     end
 
@@ -75,18 +75,18 @@ module data_cache (
     always @ (*)
     begin
         #1
-        data = cache[address[4:2]];           
+        data = cache[address[7:4]];           
     end
 
-    assign #1 valid = cacheValid[address[4:2]];    
-    assign #1 dirty = cacheDirty[address[4:2]];   
-    assign #1 tag = cacheTag[address[4:2]];        
+    assign #1 valid = cacheValid[address[7:4]];    
+    assign #1 dirty = cacheDirty[address[7:4]];   
+    assign #1 tag = cacheTag[address[7:4]];        
 
     wire comparatorsignal; 
     wire hitsignal;        
 
     // Getting whether tag bits in corresponding index & tag bits given by memory address matches
-    assign #0.9 comparatorsignal = (tag == address[7:5]) ? 1 : 0;
+    assign #0.9 comparatorsignal = (tag == address[31:8]) ? 1 : 0;
 
 	assign hitsignal = comparatorsignal && valid;
 
@@ -107,16 +107,16 @@ module data_cache (
     begin
         if (hitsignal && write) begin
             #1;
-            cacheDirty[address[4:2]] = 1'b1;      
+            cacheDirty[address[7:4]] = 1'b1;      
 
             if (address[1:0] == 2'b00) begin
-                cache[address[4:2]][7:0] = writedata;
+                cache[address[7:4]][7:0] = writedata;
             end else if (address[1:0] == 2'b01) begin
-                cache[address[4:2]][15:8] = writedata;
+                cache[address[7:4]][15:8] = writedata;
             end else if (address[1:0] == 2'b10) begin
-                cache[address[4:2]][23:16] = writedata;
+                cache[address[7:4]][23:16] = writedata;
             end else if (address[1:0] == 2'b11) begin
-                cache[address[4:2]][31:24] = writedata;
+                cache[address[7:4]][31:24] = writedata;
             end
         end
     end
@@ -161,36 +161,36 @@ module data_cache (
             IDLE: begin
                 mem_read = 0;
                 mem_write = 0;
-                mem_address = 6'dx;
-                mem_writedata = 32'dx;
+                mem_address = 28'dx;
+                mem_writedata = 128'dx;
                 busywait = 0;
             end
          
             MEM_READ: begin
                 mem_read = 1;                      
                 mem_write = 0;
-                mem_address = {address[7:2]};       
-                mem_writedata = 32'dx;
+                mem_address = {address[31:4]};       
+                mem_writedata = 128'dx;
             end
             
             MEM_WRITE: begin
                 mem_read = 0;
                 mem_write = 1;                     
-                mem_address = {tag,address[4:2]};   
+                mem_address = {tag,address[7:4]};   
                 mem_writedata = data;              
             end
 
             CACHE_UPDATE: begin
                 mem_read = 0;
                 mem_write = 0;
-                mem_address = 6'dx;
-                mem_writedata = 32'dx;
+                mem_address = 28'dx;
+                mem_writedata = 128'dx;
 
                 #1
-                cache[address[4:2]] = mem_readdata;   
-                cacheTag[address[4:2]] = address[7:5];     
-                cacheValid[address[4:2]] = 1'b1;           
-                cacheDirty[address[4:2]] = 1'b0;           
+                cache[address[7:4]] = mem_readdata;   
+                cacheTag[address[7:4]] = address[31:8];     
+                cacheValid[address[7:4]] = 1'b1;           
+                cacheDirty[address[7:4]] = 1'b0;           
             end
         endcase
     end

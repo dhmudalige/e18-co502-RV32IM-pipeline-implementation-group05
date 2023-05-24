@@ -2,7 +2,7 @@
 
 module instruction_cache(
     // Port declaration
-	PC,
+	pc_address,
     clock,
     reset,
     inst_readdata,
@@ -13,14 +13,14 @@ module instruction_cache(
     busywait
 );
 
-    input [31:0] PC;                    
+    input [31:0] pc_address;                    
     input clock;
     input reset;
     input [127:0] inst_readdata;        
     input inst_busywait;               
     output reg inst_read;              
     output [31:0] instruction;          
-    output reg [5:0] inst_address;     
+    output reg [27:0] inst_address;     
     output reg busywait;               
 
     reg [127:0] inst_data [7:0];       
@@ -28,12 +28,14 @@ module instruction_cache(
     reg [2:0] inst_tag [7:0];          
     reg [9:0] address;                 
 
-    wire valid;         
-    wire [2:0] tag;     
-    reg [127:0] data;   
+    // Defining Memory Block Arrays (Reg Arrays) 
+    // of the Instruction Cache
+    wire valid [0:7];         
+    wire [24:0] tag [0:7];     
+    reg [127:0] data [0:7];   
 
-    always @ (PC) begin
-		address = {PC[9:0]};	
+    always @ (pc_address) begin
+		address = {pc_address[9:0]};	
 		busywait = 1'b1;
     end
 
@@ -89,18 +91,18 @@ module instruction_cache(
         case(state)
             IDLE: begin
 					inst_read = 0;
-					inst_address = 6'dx;
+					inst_address = 28'dx;
 					busywait = 0;
 				end
          
             MEM_READ: begin
 					inst_read = 1;                    
-					inst_address = {address[9:4]};  
+					inst_address = {address[31:4]};  
 				end
             
             CACHE_UPDATE: begin
 					inst_read = 0;
-					inst_address = 6'dx;
+					inst_address = 28'dx;
 
 					#1
 					inst_data[address[6:4]] = inst_readdata;   
