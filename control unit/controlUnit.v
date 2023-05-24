@@ -39,6 +39,7 @@ module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STO
     //if it is 0 , reset the READ and WRITE signals 
     always @ (BUSYWAIT) begin
         if(BUSYWAIT == 1'b0) begin
+            #1
             READ = 1'b0;
             WRITE = 1'b0;
             if(OPCODE==8'b00001001) begin
