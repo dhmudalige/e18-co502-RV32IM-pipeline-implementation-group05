@@ -1,35 +1,41 @@
-//register file module
-module reg_file(IN,OUT1,OUT2,INADDRESS,OUT1ADDRESS,OUT2ADDRESS,WRITE,CLK,RESET);
-    //port declarations
-    input [31:0] IN;                                     //for input data
-    input [4:0] INADDRESS, OUT1ADDRESS, OUT2ADDRESS;    //addresses of the registers which values should write and values should retrieve
-    input WRITE, CLK, RESET;                            //control input ports for write and reset
-    output [31:0] OUT1, OUT2;                        //registeres to store values that are read
-    reg [31:0] register_file [0:31];                      //register fie with 32, 32 bit registers
-    integer i;                                          
-    //reg change_val = 1'b0;                              //to check whether write and reset happen correctly
 
-    
-    //read the values of the registers in the given address 
-    assign #2 OUT1 = register_file[OUT1ADDRESS];  //after 2 unit delayget the value in OUT1ADDRESS of the register file and store it in OUT1
-    assign #2 OUT2 = register_file[OUT2ADDRESS];  //after 2 unit delay get the value in OUT2ADDRESS of the register file and store it in OUT2
-  
-    //this block excutes at the positive edge of the clock signal
-    always @ (posedge CLK)
-    begin
-        //write the given values to registers when qrite is enable and reset is disable
-        if (WRITE == 1 && RESET == 0) begin
-            #1 register_file[INADDRESS] = IN;   //after 1 unit delay write the given input to given address
+
+module reg_file(WRITE_DATA, DATA1, DATA2, WRITE_ADDRESS, DATA1_ADDRESS, DATA2_ADDRESS, WRITE_ENABLE, CLK, RESET);
+
+    //create the 8x8 register array
+    reg [31:0] REGISTER[0:31];
+
+    //declaring ports
+    input [31:0] WRITE_DATA;
+    input [4:0] DATA1_ADDRESS, DATA2_ADDRESS, WRITE_ADDRESS;
+    input WRITE_ENABLE, CLK, RESET;
+    output [31:0] DATA1, DATA2;
+
+    //variable to count the iterations in loops
+    integer i;
+
+    //reading the registers
+    //this runs always when the register values changes or when the register outaddress changes
+    assign #2 DATA1 = REGISTER[DATA1_ADDRESS];
+    assign #2 DATA2 = REGISTER[DATA2_ADDRESS];
+
+    //resetting the registers
+    always @ (*) begin
+        //if the reset = 1, then all the registers are set to 0
+        if (RESET) begin  
+            #2 for (i = 0; i < 32; i = i + 1)
+                REGISTER[i] = 32'd0;
         end
+    end
 
-        //reset the whole register file
-        else if (RESET == 1) begin
-            //reset all register one by one
-            #1
-            //after 1 unit delay
-            for(i = 0; i < 31; i = i + 1) begin
-                register_file[i] = 0; //rset the registers
-            end
+    //writting the values to a register
+    //this runs only on positive clock edges
+    always @ (posedge CLK) begin
+        #1
+        //if the write = 1 and reset = 0, the given register will be written with the given value
+        // TODO: NOP support
+        if (WRITE_ENABLE & !RESET & WRITE_ADDRESS != 0) begin
+            REGISTER[WRITE_ADDRESS] = WRITE_DATA;
         end
     end
 

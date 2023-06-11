@@ -1,134 +1,146 @@
-`timescale 1ns/100ps
+module instruction_cache(CLK, RESET, ADDRESS, READDATA, BUSYWAIT, MEM_ADDRESS, MEM_READ, MEM_READDATA, MEM_BUSYWAIT);
 
-module instruction_cache(
-    // Port declaration
-	pc_address,
-    clock,
-    reset,
-    inst_readdata,
-    inst_busywait,
-    inst_read,
-    instruction,
-    inst_address,
-    busywait
-);
+//Declare ports
+input [31:0] ADDRESS;
+input [127:0] MEM_READDATA;
+input CLK, RESET, MEM_BUSYWAIT;
+output reg [31:0] READDATA;
+output reg BUSYWAIT;
+output reg [27:0] MEM_ADDRESS;
+output reg MEM_READ;
 
-    input [31:0] pc_address;                    
-    input clock;
-    input reset;
-    input [127:0] inst_readdata;        
-    input inst_busywait;               
-    output reg inst_read;              
-    output [31:0] instruction;          
-    output reg [27:0] inst_address;     
-    output reg busywait;               
+//Create reg arrays in cache
+reg [127:0] DATA [0:7];
+reg VALID [0:7];
+reg [24:0] TAG [0:7];
 
-    reg [127:0] inst_data [7:0];       
-    reg inst_valid [7:0];              
-    reg [2:0] inst_tag [7:0];          
-    reg [9:0] address;                 
-
-    // Defining Memory Block Arrays (Reg Arrays) 
-    // of the Instruction Cache
-    wire valid [0:7];         
-    wire [24:0] tag [0:7];     
-    reg [127:0] data [0:7];   
-
-    always @ (pc_address) begin
-		address = {pc_address[9:0]};	
-		busywait = 1'b1;
-    end
-
-    always @ (*) begin
-        #1 data = inst_data[address[6:4]];            
-    end
-	
-    assign #1 valid = inst_valid[address[6:4]];    
-    assign #1 tag = inst_tag[address[6:4]];
-
-    wire comparatorsignal;
-    wire hitsignal;         
-
-    assign #0.9 comparatorsignal = (tag == address[9:7]) ? 1 : 0;
-
-    assign hitsignal = comparatorsignal && valid;
-
-    always @ (posedge clock)
-    if (hitsignal) begin
-        busywait = 1'b0;	// set busywait to 0
-    end
-
-    assign #1 instruction = ((address[3:2] == 2'b01) && hitsignal) ? data[63:32] :
-							((address[3:2] == 2'b10) && hitsignal) ? data[95:64] :
-							((address[3:2] == 2'b11) && hitsignal) ? data[127:96] : data[31:0];
+//set busywait when a pc value is sent to the cache when the ADDRESS is not -4
+always @ (ADDRESS)
+begin
+    if(ADDRESS != -32'd4) BUSYWAIT = 1;
+end
     
-    /* Cache Controller FSM Start */
-    parameter IDLE = 2'b00, MEM_READ = 2'b01, CACHE_UPDATE = 2'b10;
-    reg [1:0] state, next_state;
+//wires to store the extracted values depending on the index part of the address
+wire VALID_OUT;
+wire [127:0] DATA_OUT;
+wire [24:0] TAG_OUT;
 
-    // combinational next state logic
-    always @(*) begin
-        case (state)
-            IDLE:
-                if (!hitsignal)  
-                    next_state = MEM_READ;  
-                else
-                    next_state = IDLE;             
-            
-            MEM_READ:
-                if (inst_busywait)
-                    next_state = MEM_READ;          
-                else    
-                    next_state = CACHE_UPDATE;      
+//Obtaining the stored values from the register array depending on the index
+assign #1 DATA_OUT = DATA[ADDRESS[6:4]];
+assign #1 VALID_OUT = VALID[ADDRESS[6:4]];
+assign #1 TAG_OUT = TAG[ADDRESS[6:4]];
 
-            CACHE_UPDATE:
-                next_state = IDLE;                  
+
+// tag compare and determining the hit status
+wire TAG_STATUS, HIT;
+assign #1 TAG_STATUS = (TAG_OUT == ADDRESS[31:7]) ? 1 : 0;
+assign HIT = VALID_OUT & TAG_STATUS;
+
+//clear busywait at positive clock edge and when there is a hit
+always @ (posedge CLK)
+begin
+    if (HIT) BUSYWAIT = 0;
+end
+
+//select data from offsets if it is a hit else send dont care to the CPU
+//instruction is sent to the CPU only if its a hit because if not some garbage instruction will be sent to the CPU
+//if this garbage instruction is a Store instruction, the data in the data cache will be corrupted.
+always @ (*)
+begin
+    #1
+    if (HIT)
+    begin
+        case (ADDRESS[3:2])
+            2'b00 : READDATA = DATA_OUT[31:0];
+            2'b01 : READDATA = DATA_OUT[63:32];
+            2'b10 : READDATA = DATA_OUT[95:64];
+            2'b11 : READDATA = DATA_OUT[127:96];
         endcase
     end
+    else 
+        READDATA = 32'bx;
+end
 
-    // combinational output logic
-    always @(state) begin
-        case(state)
-            IDLE: begin
-					inst_read = 0;
-					inst_address = 28'dx;
-					busywait = 0;
-				end
+
+
+/* Cache Controller FSM Start */
+parameter IDLE = 2'b00, READ_MEM = 2'b01, UPDATE_CACHE = 2'b10;
+reg [1:0] STATE, NEXT_STATE;
+
+// combinational next state logic
+always @(*)
+begin
+    case (STATE)
+        IDLE:
+            if (!HIT && (ADDRESS != -32'd4))  
+               NEXT_STATE = READ_MEM;
+            else
+                NEXT_STATE = IDLE;
+            
+        READ_MEM:
+            if (!MEM_BUSYWAIT)
+                NEXT_STATE = UPDATE_CACHE;
+            else    
+                NEXT_STATE = READ_MEM;
+
+        UPDATE_CACHE:
+            NEXT_STATE = IDLE;
+            
+    endcase
+end
+
+// combinational output logic
+always @(STATE)
+begin
+    case(STATE)
+        IDLE:
+        begin
+            MEM_READ = 0;
+            MEM_ADDRESS = 28'dx;
+        end
          
-            MEM_READ: begin
-					inst_read = 1;                    
-					inst_address = {address[31:4]};  
-				end
+        READ_MEM: 
+        begin
+            MEM_READ = 1;
+            MEM_ADDRESS = {ADDRESS[31:4]};
+        end
+
+        UPDATE_CACHE:
+        begin
+            MEM_READ = 0;
+            #1
+            DATA[ADDRESS[6:4]] = MEM_READDATA;
+            VALID[ADDRESS[6:4]] = 1;
+            TAG[ADDRESS[6:4]] = ADDRESS[31:7];
+        end
             
-            CACHE_UPDATE: begin
-					inst_read = 0;
-					inst_address = 28'dx;
+    endcase
+end
 
-					#1
-					inst_data[address[6:4]] = inst_readdata;   
-					inst_tag[address[6:4]] = address[9:7];     
-					inst_valid[address[6:4]] = 1'b1;       
-				end
-        endcase
-    end
+// sequential logic for state transitioning 
+always @ (posedge CLK, RESET)
+begin
+    if(RESET)
+        STATE = IDLE;
+    else
+        STATE = NEXT_STATE;
+end
 
-    // sequential logic for state transitioning 
-    always @(posedge clock, reset) begin
-        if(reset)
-            state = IDLE;
-        else
-            state = next_state;
-    end
-    /* Cache Controller FSM End */
+//reset the cache memory when the reset signal is high
+integer i;
 
-    // Reset instruction cache
-    integer i;
-	always @ (reset) begin
-        for(i = 0; i < 8; i++) begin
-            inst_valid[i] = 1'd0;
-            inst_tag[i] = 3'dx;
-            inst_data[i] = 32'dx;
+always @ (RESET)
+begin
+    if(RESET)
+    begin
+        for ( i = 0; i < 8; i = i + 1)
+        begin
+            VALID[i] = 0;
+            TAG[i] = 25'bx;
+            BUSYWAIT = 0;
+            DATA[i] = 128'dx;
         end
     end
-    
+end
+     
 endmodule

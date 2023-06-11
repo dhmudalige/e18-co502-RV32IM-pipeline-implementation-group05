@@ -1,283 +1,104 @@
-`timescale 1ns/100ps
-
-`include "../control_unit/control_unit.v"
-`include "../alu/alu.v"
+`include "../mux/mux2x1.v"
+`include "../mux/mux4x1.v"
+`include "../register/register_32bit.v"
 `include "../adder/adder.v"
-`include "../register_file/register_file.v"
-`include "../data_cache/data_cache.v"
-`include "../instruction_cache/instruction_cache.v"
-// `include "../immediate_select/immediate_select.v"
-// `include "../branch_select/branch_select.v"
-`include "../branching_unit/branch_logics.v"
-// `include "../mux/mux3bit_2to1.v"
-`include "../mux/mux32bit_2to1.v"
-`include "../mux/mux32bit_4to1.v"
-// `include "../forwarding_unit/stage3_forward.v"
-// `include "../forwarding_unit/stage4_forward.v"
-`include "../pipeline_registers/if_id_pipeline_reg.v"
-`include "../pipeline_registers/id_ex_pipeline_reg.v"
-`include "../pipeline_registers/ex_mem_pipeline_reg.v"
-`include "../pipeline_registers/mem_wb_pipeline_reg.v"
+`include "../instruction cache/instruction_cache.v"
+`include "../register file/register_file.v"
+`include "../control unit/controlUnit.v"
+`include "../sign extend unit/signExtend.v"
+`include "../alu/alu.v"
+`include "../branchLogic/branchLogic.v"
+`include "../data cache/data_cache.v"
+`include "../pipeline_registers/ex_mem_pipeline_register.v"
+`include "../pipeline_registers/id_ex_pipeline_register.v"
+`include "../pipeline_registers/if_id_pipeline_register.v"
+`include "../pipeline_registers/mem_wb_pipeline_register.v"
+`include "../forwarding unit/forwarding_unit.v"
 
 
-module cpu(PC, INSTRUCTION, CLK, RESET, MEM_READ_EN, MEM_WRITE_EN, DATA_CACHE_ADDR, DATA_CACHE_DATA, DATA_CACHE_READ_DATA, DATA_CACHE_BUSY_WAIT,
-            INS_READ_EN, INS_CACHE_BUSY_WAIT);
+module cpu (RESET, CLK, INST_MEM_READDATA, DATA_MEM_READDATA, DATA_MEM_WRITEDATA, INST_MEM_READ, DATA_MEM_BUSYWAIT, DATA_MEM_READ, DATA_MEM_WRITE, INST_MEM_ADDRESS, DATA_MEM_ADDRESS, INST_MEM_BUSYWAIT);
 
-    input [31:0] INSTRUCTION; //fetched INSTRUCTIONtructions
-    input CLK, RESET; // clock and reset for the cpu
-    input DATA_CACHE_BUSY_WAIT; // busy wait signal from the memory
-    input INS_CACHE_BUSY_WAIT; // busy wait from the instruction memory
-    input [31:0] DATA_CACHE_READ_DATA; // input from the memory read
-    output reg [31:0] PC; //programme counter
-    output [3:0] MEM_READ_EN; // control signal to the data memory
-    output [2:0] MEM_WRITE_EN; // control signal to the data memory
-    output reg INS_READ_EN; // read enable for the instruction read
-    output [31:0] DATA_CACHE_ADDR, DATA_CACHE_DATA; // output signal to the memory (address and the write data input)
+input RESET, CLK, INST_MEM_BUSYWAIT, DATA_MEM_BUSYWAIT;
+input [127:0] INST_MEM_READDATA, DATA_MEM_READDATA;
+output [127:0] DATA_MEM_WRITEDATA;
+output INST_MEM_READ, DATA_MEM_READ, DATA_MEM_WRITE;
+output [27:0] INST_MEM_ADDRESS, DATA_MEM_ADDRESS;
 
+wire [31:0] PC_4_OUT, ALU_OUT, PC_SEL_MUX_OUT, PC_OUT, INSTRUCTION, INSTRUCTION_ID, PC_OUT_ID, WB_MUX_OUT, REG_FILE_OUT1, REG_FILE_OUT2, IMM_GEN_OUT, PC_OUT_EX, REG_FILE_OUT1_EX, REG_FILE_OUT2_EX, IMM_GEN_OUT_EX, OPERAND1, OPERAND2, PC_OUT_MEM, ALU_OUT_MEM, REG_FILE_OUT2_MEM, IMM_GEN_OUT_MEM, PC_4_WB_OUT, READDATA, PC_4_WB_OUT_WB, ALU_OUT_WB, IMM_GEN_OUT_WB,  READDATA_WB;
 
+wire PC_SEL, DATA_BUSYWAIT, INST_BUSYWAIT, REG_WRITE_EN_WB, WRITE_ENABLE, BUSYWAIT,OP1SEL, OP2SEL, REG_WRITE_EN, OP1SEL_EX,  OP2SEL_EX, REG_WRITE_EN_EX, REG_WRITE_EN_MEM;
+wire [4:0] WRITE_ADDRESS_WB, WRITE_ADDRESS_EX, WRITE_ADDRESS_MEM;
+wire [2:0] IMM_SEL, BRANCH_JUMP, BRANCH_JUMP_EX;
+wire [1:0] WB_SEL, WB_SEL_EX, WB_SEL_MEM, WB_SEL_WB;
+wire [4:0] ALUOP, ALUOP_EX;
+wire [3:0] READ_WRITE, READ_WRITE_EX, READ_WRITE_MEM;
 
-//************************** STAGE 1 **************************
-    // data lines
-    reg [31:0] PR_INSTRUCTION, PR_PC_S1;
+assign BUSYWAIT = (DATA_BUSYWAIT | INST_BUSYWAIT);
+assign WRITE_ENABLE = (REG_WRITE_EN_WB & !BUSYWAIT);
 
-    wire [31:0] PC_PLUS_4, PC_NEXT;
+// Instruction fetch stage
+mux2x1 pc_sel_mux(PC_4_OUT, ALU_OUT, PC_SEL_MUX_OUT, PC_SEL);
+register_32bit program_counter(PC_SEL_MUX_OUT, PC_OUT, RESET, CLK, BUSYWAIT);
+instruction_cache inst_cache(CLK, RESET, PC_OUT, INSTRUCTION, INST_BUSYWAIT, INST_MEM_ADDRESS, INST_MEM_READ, INST_MEM_READDATA, INST_MEM_BUSYWAIT);
+adder pc_4_adder(PC_OUT, PC_4_OUT);
 
-    mux32bit_2to1 Group5MUXJump (PC_PLUS_4, ALU_OUT, PC_NEXT, BRANCH_SELECT_OUT);
+if_id_pipeline_register if_id_reg(INSTRUCTION, PC_OUT, INSTRUCTION_ID, PC_OUT_ID, CLK, (RESET | (CLK & PC_SEL)), BUSYWAIT);
 
-    assign PC_PLUS_4 = PC + 4;
-    
+// Instruction decode stage
 
-//************************** STAGE 2 **************************
-    // data lines
-    reg [31:0] PR_PC_S2, PR_DATA_1_S2, PR_DATA_2_S2, PR_IMMEDIATE_SELECT_OUT;
-    reg [4:0] PR_REGISTER_WRITE_ADDR_S2;
-    
-    // for the fowarding unit
-    reg [4:0] REG_READ_ADDR1_S2, REG_READ_ADDR2_S2;
-
-    // control lines
-    reg [3:0] PR_BRANCH_SELECT_S2, PR_MEM_READ_S2;
-    reg [4:0] PR_ALU_SELECT;
-    reg PR_OPERAND1_SEL, PR_OPERAND2_SEL;
-    reg [2:0] PR_MEM_WRITE_S2; 
-    reg [1:0] PR_REG_WRITE_SELECT_S2;
-    reg PR_REG_WRITE_EN_S2; 
-
-    wire [31:0] DATA1_S2, DATA2_S2, IMMEDIATE_OUT_S2; 
-    wire [3:0] IMMEDIATE_SELECT;
-    wire [3:0] BRANCH_SELECT, MEM_READ_S2;
-    wire [4:0] ALU_SELECT;
-    wire OPERAND1_SEL, OPERAND2_SEL;
-    wire [2:0] MEM_WRITE_S2; 
-    wire [1:0] REG_WRITE_SELECT_S2;
-    wire REG_WRITE_EN_S2; 
-
-    reg_file Group5RegFile (REG_WRITE_DATA, 
-                    DATA1_S2, 
-                    DATA2_S2, 
-                    PR_REGISTER_WRITE_ADDR_S4, 
-                    PR_INSTRUCTION[19:15], 
-                    PR_INSTRUCTION[24:20], 
-                    PR_REG_WRITE_EN_S4, 
-                    CLK, 
-                    RESET);
-
-    immediate_select Group5ImmSelect (PR_INSTRUCTION, IMMEDIATE_SELECT, IMMEDIATE_OUT_S2);
-    
-    control_unit Group5ControlUnit (PR_INSTRUCTION, 
-                            ALU_SELECT, 
-                            REG_WRITE_EN_S2, 
-                            MEM_WRITE_S2, 
-                            MEM_READ_S2, 
-                            BRANCH_SELECT, 
-                            IMMEDIATE_SELECT, 
-                            OPERAND1_SEL, 
-                            OPERAND2_SEL, 
-                            REG_WRITE_SELECT_S2, 
-                            RESET);
+reg_file register_file(WB_MUX_OUT, REG_FILE_OUT1, REG_FILE_OUT2, WRITE_ADDRESS_WB, INSTRUCTION_ID[19:15], INSTRUCTION_ID[24:20], WRITE_ENABLE, CLK, RESET);
+signExtend imm_gen(INSTRUCTION_ID[31:7], IMM_GEN_OUT, IMM_SEL);
+controlUnit ctrl_unit(INSTRUCTION_ID[6:0], INSTRUCTION_ID[14:12], INSTRUCTION_ID[31:25], OP1SEL, OP2SEL, REG_WRITE_EN, WB_SEL, ALUOP, BRANCH_JUMP, IMM_SEL, READ_WRITE);
 
 
-//************************** STAGE 3 **************************
-    reg [31:0] PR_PC_S3, PR_ALU_OUT_S3, PR_DATA_2_S3;
-    reg [4:0] PR_REGISTER_WRITE_ADDR_S3;
-    
-    reg [4:0] REG_READ_ADDR2_S3;  // for Stage 4 fowarding 
+wire DATA1IDSEL, DATA2IDSEL, DATAMEMSEL, DATAMEMSEL_EX , DATAMEMSEL_MEM;
+wire [1:0] DATA1ALUSEL, DATA2ALUSEL, DATA1BJSEL, DATA2BJSEL;
+wire [1:0] DATA1ALUSEL_EX, DATA2ALUSEL_EX, DATA1BJSEL_EX, DATA2BJSEL_EX;
 
-    // control lines
-    reg [3:0] PR_MEM_READ_S3;
-    reg [2:0] PR_MEM_WRITE_S3; 
-    reg [1:0] PR_REG_WRITE_SELECT_S3;
-    reg PR_REG_WRITE_EN_S3; 
+forwarding_unit fwd_unit (
+    INSTRUCTION_ID[19:15], INSTRUCTION_ID[24:20], WRITE_ADDRESS_WB, WRITE_ADDRESS_MEM, WRITE_ADDRESS_EX, OP1SEL, OP2SEL, INSTRUCTION_ID[6:0],
+    DATA1IDSEL, DATA2IDSEL, DATA1ALUSEL, DATA2ALUSEL, DATA1BJSEL, DATA2BJSEL, DATAMEMSEL
+);
 
-    wire[31:0] ALU_IN_1, ALU_IN_2;
-    wire[31:0] ALU_OUT;
-    wire BRANCH_SELECT_OUT;
+wire [31:0] DATA1_ID, DATA2_ID;
 
-    mux32bit_2to1 Group5Operand1MUX (PR_PC_S2, ALU_IN_1, PR_OPERAND1_SEL);
-    mux32bit_2to1 Group5Operand2MUX (PR_IMMEDIATE_SELECT_OUT, ALU_IN_2, PR_OPERAND2_SEL);
-    
-    alu Group5ALU (ALU_IN_1, ALU_IN_2, ALU_OUT, PR_ALU_SELECT);
-    // branch_select Group5BranchSelect(PR_BRANCH_SELECT_S2, BRANCH_SELECT_OUT);
+mux2x1 mux_id_1(REG_FILE_OUT1, WB_MUX_OUT, DATA1_ID, DATA1IDSEL);
+mux2x1 mux_id_2(REG_FILE_OUT2, WB_MUX_OUT, DATA2_ID, DATA2IDSEL);
 
-    // stage3_forward Group5_Stage3_Fowarding (PR_MEM_WRITE_S2[2], 
-    //                                         REG_READ_ADDR1_S2, 
-    //                                         REG_READ_ADDR2_S2, 
-    //                                         PR_OPERAND1_SEL, 
-    //                                         PR_OPERAND2_SEL, 
-    //                                         PR_REGISTER_WRITE_ADDR_S3, 
-    //                                         PR_REG_WRITE_EN_S3, 
-    //                                         PR_REGISTER_WRITE_ADDR_S4, 
-    //                                         PR_REG_WRITE_EN_S4,  
-    //                                         PR_REGISTER_WRITE_ADDR_S5, 
-    //                                         PR_REG_WRITE_EN_S5);
+id_ex_pipeline_register id_ex_reg(INSTRUCTION_ID[11:7], PC_OUT_ID, DATA1_ID, DATA2_ID, IMM_GEN_OUT, DATA1ALUSEL, DATA2ALUSEL, DATA1BJSEL, DATA2BJSEL, ALUOP, BRANCH_JUMP, DATAMEMSEL, READ_WRITE, WB_SEL, REG_WRITE_EN, WRITE_ADDRESS_EX, PC_OUT_EX, REG_FILE_OUT1_EX, REG_FILE_OUT2_EX, IMM_GEN_OUT_EX, DATA1ALUSEL_EX, DATA2ALUSEL_EX, DATA1BJSEL_EX, DATA2BJSEL_EX, ALUOP_EX, BRANCH_JUMP_EX, DATAMEMSEL_EX, READ_WRITE_EX, WB_SEL_EX, REG_WRITE_EN_EX, CLK,  (RESET | (CLK & PC_SEL)), BUSYWAIT);
 
+// Instruction execution stage
+// mux_2x1_32bit operand1_mux(REG_FILE_OUT1_EX, PC_OUT_EX, OPERAND1, OP1SEL_EX);
+// mux_2x1_32bit operand2_mux(REG_FILE_OUT2_EX, IMM_GEN_OUT_EX, OPERAND2, OP2SEL_EX);
 
-//************************** STAGE 4 **************************
-    // data lines
-    reg [31:0] PR_PC_S4, PR_ALU_OUT_S4, PR_DATA_CACHE_OUT;
-    reg [4:0] PR_REGISTER_WRITE_ADDR_S4;
+mux4x1 mux_ex_alu_1(REG_FILE_OUT1_EX, PC_OUT_EX, WB_MUX_OUT, ALU_OUT_MEM, OPERAND1, DATA1ALUSEL_EX);
+mux4x1 mux_ex_alu_2(REG_FILE_OUT2_EX, IMM_GEN_OUT_EX, WB_MUX_OUT, ALU_OUT_MEM, OPERAND2, DATA2ALUSEL_EX);
 
-    // control lines
-    reg [1:0] PR_REG_WRITE_SELECT_S4;
-    reg PR_REG_WRITE_EN_S4; 
-    reg [3:0] PR_MEM_READ_S4;
+alu alu_unit(OPERAND1, OPERAND2, ALU_OUT,ALUOP_EX);
 
-    wire [31:0] PC_PLUS_4_2;
+wire [31:0] MUX_EX_BJ1_OUT, MUX_EX_BJ2_OUT;
 
-    assign DATA_CACHE_ADDR = PR_ALU_OUT_S3;
-    assign MEM_WRITE_EN = PR_MEM_WRITE_S3;
-    assign MEM_READ_EN = PR_MEM_READ_S3;
+mux4x1 mux_ex_bj_1(REG_FILE_OUT1_EX, REG_FILE_OUT1_EX, WB_MUX_OUT, ALU_OUT_MEM, MUX_EX_BJ1_OUT, DATA1BJSEL_EX);
+mux4x1 mux_ex_bj_2(REG_FILE_OUT2_EX, REG_FILE_OUT2_EX, WB_MUX_OUT, ALU_OUT_MEM, MUX_EX_BJ2_OUT, DATA2BJSEL_EX);
 
-    // stage4_forward Group5_Stage4_Forwarding(REG_READ_ADDR2_S3, 
-    //                                         PR_REGISTER_WRITE_ADDR_S4, 
-    //                                         PR_MEM_WRITE_S3[2], 
-    //                                         PR_MEM_READ_S4[3]);
+wire [31:0] MUX_EX_OUT, MUX_EX_OUT_MEM;
+mux4x1 mux_ex(REG_FILE_OUT2_EX, REG_FILE_OUT2_EX, WB_MUX_OUT, ALU_OUT_MEM, MUX_EX_OUT, DATA2BJSEL_EX);
 
-    mux32bit_2to1 Group5Stage4ForwardingMUX(PR_DATA_2_S3, PR_DATA_CACHE_OUT);
+branchLogic bj_unit(BRANCH_JUMP_EX, MUX_EX_BJ1_OUT, MUX_EX_BJ2_OUT, PC_SEL);
 
+ex_mem_pipeline_register ex_mem_reg(WRITE_ADDRESS_EX, PC_OUT_EX, ALU_OUT, MUX_EX_OUT, IMM_GEN_OUT_EX, DATAMEMSEL_EX, READ_WRITE_EX, WB_SEL_EX, REG_WRITE_EN_EX, WRITE_ADDRESS_MEM, PC_OUT_MEM, ALU_OUT_MEM, MUX_EX_OUT_MEM, IMM_GEN_OUT_MEM, DATAMEMSEL_MEM, READ_WRITE_MEM, WB_SEL_MEM, REG_WRITE_EN_MEM, CLK,  RESET, BUSYWAIT);
 
-//************************** STAGE 5 **************************
+// Memory stage
+adder pc_4_adder_wb(PC_OUT_MEM, PC_4_WB_OUT);
 
-    // data lines
-    reg [31:0] REG_WRITE_DATA_S5;
-    reg [4:0] PR_REGISTER_WRITE_ADDR_S5;
+wire [31:0] MUX_MEM_OUT;
+mux2x1 mux_mem(MUX_EX_OUT_MEM, WB_MUX_OUT, MUX_MEM_OUT, DATAMEMSEL_MEM);
 
-    // control lines
-    reg PR_REG_WRITE_EN_S5; 
-    
-    wire [31:0] REG_WRITE_DATA;
-    mux32bit_4to1 Group5RegWriteSELMUX (PR_DATA_CACHE_OUT, PR_ALU_OUT_S4, 32'b0, PR_PC_S4, REG_WRITE_DATA, PR_REG_WRITE_SELECT_S4);
+data_cache d_cache(CLK, RESET, DATA_BUSYWAIT, READ_WRITE_MEM, MUX_MEM_OUT, READDATA, ALU_OUT_MEM, DATA_MEM_BUSYWAIT, DATA_MEM_READ, DATA_MEM_WRITE, DATA_MEM_READDATA, DATA_MEM_WRITEDATA, DATA_MEM_ADDRESS);
 
-// register updating section
-always @(posedge CLK) begin
-    #1
-    if (!(DATA_CACHE_BUSY_WAIT || INS_CACHE_BUSY_WAIT)) begin
-        //************************** Tempary stage for Write Back fowarding **************************
-        // #0.0001
-        // REG_WRITE_DATA_S5 = REG_WRITE_DATA;
-        // PR_REGISTER_WRITE_ADDR_S5 = PR_REGISTER_WRITE_ADDR_S4;
+mem_wb_pipeline_register mem_wb_reg(WRITE_ADDRESS_MEM, PC_4_WB_OUT, ALU_OUT_MEM,  IMM_GEN_OUT_MEM, READDATA, WB_SEL_MEM, REG_WRITE_EN_MEM, WRITE_ADDRESS_WB, PC_4_WB_OUT_WB, ALU_OUT_WB, IMM_GEN_OUT_WB,  READDATA_WB, WB_SEL_WB, REG_WRITE_EN_WB, CLK,  RESET, BUSYWAIT);
 
-        // PR_REG_WRITE_EN_S5 = PR_REG_WRITE_EN_S4;
-
-        //************************** STAGE 4 **************************
-        #0.001
-        PR_REGISTER_WRITE_ADDR_S4 = PR_REGISTER_WRITE_ADDR_S3;
-        PR_PC_S4 = PR_PC_S3;
-        PR_ALU_OUT_S4 = PR_ALU_OUT_S3;
-        PR_DATA_CACHE_OUT = DATA_CACHE_READ_DATA;
-        
-        PR_REG_WRITE_SELECT_S4  = PR_REG_WRITE_SELECT_S3;
-        PR_REG_WRITE_EN_S4 = PR_REG_WRITE_EN_S3;
-        PR_MEM_READ_S4 = PR_MEM_READ_S3;
-        
-        //************** ************ STAGE 3 **************************
-        #0.001
-        PR_REGISTER_WRITE_ADDR_S3 = PR_REGISTER_WRITE_ADDR_S2;
-        PR_PC_S3 = PR_PC_S2;
-        PR_ALU_OUT_S3 = ALU_OUT;
-        PR_DATA_2_S3 = ; 
-        REG_READ_ADDR2_S3 = REG_READ_ADDR2_S2;   
-        
-        PR_MEM_READ_S3 = PR_MEM_READ_S2;
-        PR_MEM_WRITE_S3 = PR_MEM_WRITE_S2;
-        PR_REG_WRITE_SELECT_S3  = PR_REG_WRITE_SELECT_S2;
-        PR_REG_WRITE_EN_S3 = PR_REG_WRITE_EN_S2;
-
-        //************************** STAGE 2 **************************  
-        #0.001  
-        PR_REGISTER_WRITE_ADDR_S2 = PR_INSTRUCTION[11:7]; // TODO: check the 11:7 value
-        PR_PC_S2 = PR_PC_S1;
-        PR_DATA_1_S2 = DATA1_S2;
-        PR_DATA_2_S2 = DATA2_S2;
-        PR_IMMEDIATE_SELECT_OUT = IMMEDIATE_OUT_S2;
-        REG_READ_ADDR1_S2 = PR_INSTRUCTION[19:15];                
-        REG_READ_ADDR2_S2 = PR_INSTRUCTION[24:20];
-
-        PR_BRANCH_SELECT_S2 =  BRANCH_SELECT;
-        PR_ALU_SELECT =  ALU_SELECT;
-        PR_OPERAND1_SEL =  OPERAND1_SEL;
-        PR_OPERAND2_SEL =  OPERAND2_SEL;
-        PR_MEM_READ_S2 =  MEM_READ_S2;
-        PR_MEM_WRITE_S2  =  MEM_WRITE_S2;
-        PR_REG_WRITE_SELECT_S2 = REG_WRITE_SELECT_S2;
-        PR_REG_WRITE_EN_S2 = REG_WRITE_EN_S2; 
-
-        //************************** STAGE 1 **************************
-        #0.001
-        PR_INSTRUCTION = INSTRUCTION;
-        PR_PC_S1 = PC; //PC_PLUS_4;
-    end
-end
-
-// PC update with the clock edge
-always @ (posedge CLK) begin     
-    if (RESET == 1'b1) begin
-            PC = -4; // reset the pc counter
-            // clearing the pipeline registers
-            PR_INSTRUCTION = 32'b0;
-            PR_PC_S1 = 32'b0;
-
-            PR_PC_S2 = 32'b0;
-            PR_DATA_1_S2 = 32'b0; 
-            PR_DATA_2_S2 = 32'b0; 
-            PR_IMMEDIATE_SELECT_OUT = 32'b0;
-            
-            PR_REGISTER_WRITE_ADDR_S2 = 5'b0;
-            PR_BRANCH_SELECT_S2 = 4'b0; 
-            PR_MEM_READ_S2 = 4'b0;
-            PR_ALU_SELECT = 5'b0;
-            PR_OPERAND1_SEL = 1'b0;
-            PR_OPERAND2_SEL = 1'b0;
-            PR_MEM_WRITE_S2 = 3'b0; 
-            PR_REG_WRITE_SELECT_S2 = 2'b0;
-            PR_REG_WRITE_EN_S2 = 1'b0; 
-
-            PR_PC_S3 = 32'b0; 
-            PR_ALU_OUT_S3 = 32'b0;
-            PR_DATA_2_S3 = 32'b0;
-            PR_REGISTER_WRITE_ADDR_S3 = 5'b0;
-            PR_MEM_READ_S3 = 4'b0;
-            PR_MEM_WRITE_S3 = 3'b0; 
-            PR_REG_WRITE_SELECT_S3 = 2'b0;
-            PR_REG_WRITE_EN_S3 = 1'b0; 
-
-            PR_PC_S4 = 32'b0;
-            PR_ALU_OUT_S4 = 32'b0;
-            PR_DATA_CACHE_OUT = 32'b0;
-            PR_REGISTER_WRITE_ADDR_S4 = 5'b0;
-            PR_REG_WRITE_SELECT_S4 = 2'b0;
-            PR_REG_WRITE_EN_S4 = 1'b0;
-
-            INS_READ_EN = 1'b0; // disable the read enable signal of the instruction memory
-        end
-    else begin
-        INS_READ_EN = 1'b0;
-        #1
-        if (!(DATA_CACHE_BUSY_WAIT || INS_CACHE_BUSY_WAIT)) begin 
-            PC = PC_NEXT;       // increment the pc
-            INS_READ_EN = 1'b1; // enable read from the instruction memory
-        end
-    end
-end
+// Writeback stage
+mux4x1 wb_mux(ALU_OUT_WB, READDATA_WB, IMM_GEN_OUT_WB, PC_4_WB_OUT_WB, WB_MUX_OUT, WB_SEL_WB);
 
 endmodule

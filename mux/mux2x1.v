@@ -4,7 +4,7 @@
  * select INPUT2 if ENABLE is LOW
  */
 
-module mux(OUTPUT,INPUT1,INPUT2,ENABLE);
+module mux2x1(INPUT1,INPUT2,OUTPUT,ENABLE);
     //declare input,output
     input [31:0] INPUT1,INPUT2;
     input ENABLE;
@@ -16,8 +16,8 @@ module mux(OUTPUT,INPUT1,INPUT2,ENABLE);
      
         case(ENABLE)
 
-            0: OUTPUT = INPUT2;
-            1: OUTPUT = INPUT1;
+            1: OUTPUT = INPUT2;
+            default: OUTPUT = INPUT1;
         endcase
 
     end

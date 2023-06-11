@@ -1,4 +1,4 @@
-module mem_wb_pipeline_reg(
+module mem_wb_pipeline_register(
     IN_INSTRUCTION, // INSTRUCTION [11:7]
     IN_PC_4,
     IN_ALU_RESULT, 

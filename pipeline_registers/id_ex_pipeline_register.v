@@ -1,4 +1,4 @@
-module id_ex_pipeline_reg(
+module id_ex_pipeline_register(
     IN_INSTRUCTION, // INSTRUCTION [11:7]
     IN_PC,
     IN_DATA1, 
