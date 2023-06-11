@@ -1,207 +1,219 @@
-`timescale 1ns/100ps
+module data_cache(CLK, RESET, BUSYWAIT, READ_WRITE, WRITEDATA, READDATA, ADDRESS, MEM_BUSYWAIT, MEM_READ, MEM_WRITE, MEM_READDATA, MEM_WRITEDATA, MEM_ADDRESS);
 
-module data_cache (
-    clock,
-    reset,
-    read,
-    write,
-    address,
-    writedata,
-    mem_busywait,
-    mem_readdata,
-    readdata,
-    mem_read,
-    mem_write,
-    busywait,
-    mem_address,
-    mem_writedata    
-);
+//port declaration
+input CLK, RESET, MEM_BUSYWAIT;
+input [3:0] READ_WRITE;
+input [31:0] WRITEDATA, ADDRESS;
+input [127:0] MEM_READDATA;
 
+output reg [27:0] MEM_ADDRESS;
+output reg [127:0] MEM_WRITEDATA;
+output reg [31:0] READDATA;
+output reg BUSYWAIT, MEM_READ, MEM_WRITE;
 
-    input clock;
-    input reset;
-    input read;                        
-    input write;                       
-    input [31:0] address, writedata;              
-    input mem_busywait;                
-    input [127:0] mem_readdata;         
-    output [31:0] readdata;            
-    output reg mem_read, mem_write;    
-    output reg busywait;             
-    output reg [27:0] mem_address;   
-    output reg [127:0] mem_writedata;   
+//create reg arrays in the cache
+// 16 blocks with 16 bytes in each block
+reg [15:0][7:0] DATA [0:15];
+reg [23:0] TAG [0:15];
+reg DIRTY [0:15];
+reg VALID [0:15];
 
-    
-    /*
-    Combinational part for indexing, tag comparison for hit deciding, etc.
-    ...
-    ...
-    */
-    // Defining Memory Block Arrays (Reg Arrays) 
-    // of the Data Cache
-    reg cacheValid [7:0];              
-    reg cacheDirty [7:0];             
-    reg [2:0] cacheTag [7:0];         
-    reg [31:0] cache [7:0];       
+//set busywait if READ_WRITE[3] signal is 1
+always @ (READ_WRITE)
+begin
+    if (READ_WRITE[3]) 
+        BUSYWAIT = 1;
+    else
+        BUSYWAIT = 0;
+end
 
-    integer i;
+//wires to store the extracted values depending on the index part of the address
+wire VALID_OUT, DIRTY_OUT;
+wire [15:0][7:0] DATA_OUT;
+wire [23:0] TAG_OUT;
 
-    // Reset data cache
-    always @ (reset)
+//Obtaining the stored values from the register array depending on the index
+assign #1 DATA_OUT = DATA[ADDRESS[7:4]];
+assign #1 VALID_OUT = VALID[ADDRESS[7:4]];
+assign #1 DIRTY_OUT = DIRTY[ADDRESS[7:4]];
+assign #1 TAG_OUT = TAG[ADDRESS[7:4]];
+
+//tag compare and determining the hit status
+wire TAG_STATUS, HIT;
+assign #1 TAG_STATUS = (TAG_OUT == ADDRESS[31:8]) ? 1 : 0;
+assign HIT = VALID_OUT && TAG_STATUS;
+
+//clear busywait at positive clock edge and when there is a hit
+always @ (posedge CLK)
+begin
+    if (HIT) BUSYWAIT = 0;
+end
+
+//select data from offsets
+reg [7:0] DATA_BYTE;
+reg [15:0] DATA_HALF;
+reg [31:0] DATA_WORD;
+
+always @ (*) begin
+    case(READ_WRITE)
+        4'b1000: DATA_BYTE = DATA_OUT[ADDRESS[3:0]];
+        4'b1001: DATA_HALF = {DATA_OUT[{ADDRESS[3:1],1'b1}], DATA_OUT[{ADDRESS[3:1],1'b0}]};
+        4'b1010: DATA_WORD = {DATA_OUT[{ADDRESS[3:2],2'b11}], DATA_OUT[{ADDRESS[3:2],2'b10}], DATA_OUT[{ADDRESS[3:2],2'b10}], DATA_OUT[{ADDRESS[3:2],2'b00}]};
+    endcase
+end
+
+// sign extend or zero extend the data
+wire [31:0] LB, LH, LW, LBU, LHU;
+
+assign LB[7:0] = DATA_BYTE;
+assign LB[31:8] = {24{DATA_BYTE[7]}};
+
+assign LH[15:0] = DATA_HALF;
+assign LH[31:16] = {16{DATA_HALF[15]}};
+
+assign LW = DATA_WORD;
+
+assign LBU = {24'd0, DATA_BYTE[31:24]};
+
+assign LHU = {16'd0, DATA_HALF[31:16]};
+
+// output the data
+always @ (*) begin
+    #1;
+    case(READ_WRITE[2:0])
+        3'b000 :   READDATA = LB;
+        3'b001 :   READDATA = LH;
+        3'b010 :   READDATA = LW;
+        3'b100 :   READDATA = LBU;
+        3'b101 :   READDATA = LHU; 
+    endcase
+end
+
+//write data to cache
+always @ (posedge CLK)
+begin
+    if (HIT && READ_WRITE[3])
     begin
-        for(i = 0; i < 8; i++) begin
-            cacheValid[i] = 1'd0;
-            cacheDirty[i] = 1'd0;
-            cacheTag[i] = 24'dx;
-            cache[i] = 128'dx;
-        end
-    end
-
-    wire valid, dirty;      
-    wire [2:0] tag;        
-    reg [31:0] data;        
-
-
-    // Decide whether CPU should be stalled in order to perform memory read or write
-    always @ (read, write)
-    begin
-        if (read || write) begin
-            busywait = 1'b1;
-        end else begin
-            busywait = 1'b0;
-        end
-    end
-
-    always @ (*)
-    begin
-        #1
-        data = cache[address[7:4]];           
-    end
-
-    assign #1 valid = cacheValid[address[7:4]];    
-    assign #1 dirty = cacheDirty[address[7:4]];   
-    assign #1 tag = cacheTag[address[7:4]];        
-
-    wire comparatorsignal; 
-    wire hitsignal;        
-
-    // Getting whether tag bits in corresponding index & tag bits given by memory address matches
-    assign #0.9 comparatorsignal = (tag == address[31:8]) ? 1 : 0;
-
-	assign hitsignal = comparatorsignal && valid;
-
-    // If it is a hit, CPU should not be stalled. So, mem_busywait should be de-asserted
-    always @ (posedge clock)
-    if (hitsignal) begin
-        busywait = 1'b0;
-    end
-
-
-    // Reading data blocks asynchronously from the cache to send to register file according to the offset, if it is a read hit
-    assign #1 readdata = ((address[1:0] == 2'b01) && read && hitsignal) ? data[15:8] :
-                         ((address[1:0] == 2'b10) && read && hitsignal) ? data[23:16] :
-                         ((address[1:0] == 2'b11) && read && hitsignal) ? data[31:24] : data[7:0];
-    
-    // Writing data blocks to the cache if it is a 'hit' according to the offset
-    always @ (posedge clock)
-    begin
-        if (hitsignal && write) begin
-            #1;
-            cacheDirty[address[7:4]] = 1'b1;      
-
-            if (address[1:0] == 2'b00) begin
-                cache[address[7:4]][7:0] = writedata;
-            end else if (address[1:0] == 2'b01) begin
-                cache[address[7:4]][15:8] = writedata;
-            end else if (address[1:0] == 2'b10) begin
-                cache[address[7:4]][23:16] = writedata;
-            end else if (address[1:0] == 2'b11) begin
-                cache[address[7:4]][31:24] = writedata;
+        #1;
+        DIRTY[ADDRESS[7:4]] = 1;
+        case (READ_WRITE)
+            4'b1011 :
+                DATA[ADDRESS[7:4]][ADDRESS[3:0]] = WRITEDATA[7:0];
+            4'b1110 : begin
+                DATA[ADDRESS[7:4]][{ADDRESS[3:1],1'b0}] = WRITEDATA[7:0];
+                DATA[ADDRESS[7:4]][{ADDRESS[3:1],1'b1}] = WRITEDATA[15:8];
             end
-        end
-    end
-
-    /* Cache Controller FSM Start */
-    parameter IDLE = 3'b000, MEM_READ = 3'b001, MEM_WRITE = 3'b010, CACHE_UPDATE = 3'b011;
-    reg [2:0] state, next_state;
-
-    // combinational next state logic
-    always @(*) begin
-        case (state)
-            IDLE:
-                if ((read || write) && !dirty && !hitsignal)  
-                    next_state = MEM_READ;         
-                else if ((read || write) && dirty && !hitsignal)
-                    next_state = MEM_WRITE;        
-                else
-                    next_state = IDLE;            
-            
-            MEM_READ:
-                if (mem_busywait)
-                    next_state = MEM_READ;         
-                else    
-                    next_state = CACHE_UPDATE;     
-
-            MEM_WRITE:
-                if (mem_busywait)
-                    next_state = MEM_WRITE;         
-                else    
-                    next_state = MEM_READ;          
-
-            CACHE_UPDATE:
-                next_state = IDLE;                  
-            
+            4'b1111 : begin
+                DATA[ADDRESS[7:4]][{ADDRESS[3:2],2'b00}] = WRITEDATA[7:0];
+                DATA[ADDRESS[7:4]][{ADDRESS[3:2],2'b01}] = WRITEDATA[15:8];
+                DATA[ADDRESS[7:4]][{ADDRESS[3:2],2'b10}] = WRITEDATA[23:16];
+                DATA[ADDRESS[7:4]][{ADDRESS[3:2],2'b11}] = WRITEDATA[31:24];
+            end
         endcase
     end
+end
 
-    // combinational output logic
-    always @(state)
-    begin
-        case(state)
-            IDLE: begin
-                mem_read = 0;
-                mem_write = 0;
-                mem_address = 28'dx;
-                mem_writedata = 128'dx;
-                busywait = 0;
-            end
+/* Cache Controller FSM Start */
+parameter IDLE = 2'b00, READ_MEM = 2'b10, WRITE_MEM = 2'b01, UPDATE_CACHE = 2'b11;
+reg [1:0] STATE, NEXT_STATE;
+
+// combinational next state logic
+always @(*)
+begin
+    case (STATE)
+        IDLE:
+            if (READ_WRITE[3] && !DIRTY_OUT && !HIT)  
+               NEXT_STATE = READ_MEM;
+            else if (READ_WRITE[3] && DIRTY_OUT && !HIT)
+                NEXT_STATE = WRITE_MEM;
+            else
+                NEXT_STATE = IDLE;
+            
+        READ_MEM:
+            if (!MEM_BUSYWAIT)
+                NEXT_STATE = UPDATE_CACHE;
+            else    
+                NEXT_STATE = READ_MEM;
+        
+        WRITE_MEM:
+            if (!MEM_BUSYWAIT)
+                NEXT_STATE = READ_MEM;
+            else
+                NEXT_STATE = WRITE_MEM;
+
+        UPDATE_CACHE:
+            NEXT_STATE = IDLE;
+            
+    endcase
+end
+
+// combinational output logic
+always @(STATE)
+begin
+    case(STATE)
+        IDLE:
+        begin
+            MEM_READ = 0;
+            MEM_WRITE = 0;
+            MEM_ADDRESS = 28'dx;
+            MEM_WRITEDATA = 128'dx;
+        end
          
-            MEM_READ: begin
-                mem_read = 1;                      
-                mem_write = 0;
-                mem_address = {address[31:4]};       
-                mem_writedata = 128'dx;
-            end
+        READ_MEM: 
+        begin
+            MEM_READ = 1;
+            MEM_WRITE = 0;
+            MEM_ADDRESS = {ADDRESS[31:4]};
+            MEM_WRITEDATA = 128'dx;
+            // BUSYWAIT = 1;
+        end
+
+        WRITE_MEM: 
+        begin
+            MEM_READ = 0;
+            MEM_WRITE = 1;
+            MEM_ADDRESS = {TAG_OUT, ADDRESS[7:4]};
+            MEM_WRITEDATA = DATA_OUT;
+        end
+
+        UPDATE_CACHE:
+        begin
+            #1;
+            DATA[ADDRESS[7:4]] = MEM_READDATA;
+            DIRTY[ADDRESS[7:4]] = 0;
+            VALID[ADDRESS[7:4]] = 1;
+            TAG[ADDRESS[7:4]] = ADDRESS[31:8];
+        end
             
-            MEM_WRITE: begin
-                mem_read = 0;
-                mem_write = 1;                     
-                mem_address = {tag,address[7:4]};   
-                mem_writedata = data;              
-            end
+    endcase
+end
 
-            CACHE_UPDATE: begin
-                mem_read = 0;
-                mem_write = 0;
-                mem_address = 28'dx;
-                mem_writedata = 128'dx;
+// sequential logic for state transitioning 
+always @ (posedge CLK, RESET)
+begin
+    if(RESET)
+        STATE = IDLE;
+    else
+        STATE = NEXT_STATE;
+end
 
-                #1
-                cache[address[7:4]] = mem_readdata;   
-                cacheTag[address[7:4]] = address[31:8];     
-                cacheValid[address[7:4]] = 1'b1;           
-                cacheDirty[address[7:4]] = 1'b0;           
-            end
-        endcase
-    end
 
-    // sequential logic for state transitioning 
-    always @(posedge clock, reset)
+//reset the cache memory when the reset signal is high
+integer i;
+
+always @ (RESET)
+begin
+    if(RESET)
     begin
-        if(reset)
-            state = IDLE;
-        else
-            state = next_state;
+        for ( i = 0; i < 16; i = i + 1)
+        begin
+            VALID[i] = 0;
+            DIRTY[i] = 1'b0;
+            TAG[i] = 24'bx;
+            BUSYWAIT = 0;
+            DATA[i] = 128'dx;
+        end
     end
-    /* Cache Controller FSM End */
+end
+    
 endmodule

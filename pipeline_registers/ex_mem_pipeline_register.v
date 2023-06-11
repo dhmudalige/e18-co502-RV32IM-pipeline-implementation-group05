@@ -1,4 +1,4 @@
-module ex_mem_pipeline_reg(
+module ex_mem_pipeline_register(
     IN_INSTRUCTION, // INSTRUCTION [11:7]
     IN_PC,
     IN_ALU_RESULT, 

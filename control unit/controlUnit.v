@@ -1,367 +1,128 @@
-//CONTROL UNIT
+module controlUnit (OPCODE, FUNCT3, FUNCT7, OP1SEL_OUT, OP2SEL_OUT, REG_WRITE_EN_OUT, WB_SEL_OUT, ALUOP_OUT, BRANCH_JUMP_OUT, IMM_SEL_OUT, READ_WRITE_OUT);
 
-//timescale
-`timescale  1ns/100ps
+`define DECODE_DELAY #1
 
+// declare ports
+input [6:0] OPCODE;
+input [2:0] FUNCT3;
+input [6:0] FUNCT7;
+output OP1SEL_OUT, OP2SEL_OUT, REG_WRITE_EN_OUT;
+output [1:0] WB_SEL_OUT;
+output [4:0] ALUOP_OUT;
+output [2:0] BRANCH_JUMP_OUT;
+output [2:0] IMM_SEL_OUT;
+output [3:0] READ_WRITE_OUT;
 
+assign `DECODE_DELAY OP1SEL_OUT = OP1SEL;
+assign `DECODE_DELAY OP2SEL_OUT = OP2SEL;
+assign `DECODE_DELAY REG_WRITE_EN_OUT = REG_WRITE_EN;
+assign `DECODE_DELAY WB_SEL_OUT = WB_SEL;
+assign `DECODE_DELAY ALUOP_OUT = ALUOP;
+assign `DECODE_DELAY BRANCH_JUMP_OUT = BRANCH_JUMP;
+assign `DECODE_DELAY IMM_SEL_OUT = IMM_SEL;
+assign `DECODE_DELAY READ_WRITE_OUT = READ_WRITE;
 
-/*
- * control_unit module - 
- * check the opcode and
- * set alu operation , 
- * Set SUBflag to 1 if it is a sub operation
- * Set Immflag to 1 if it is a I type instruction
- *
- */
+wire OP1SEL, OP2SEL, REG_WRITE_EN;
+wire [1:0] WB_SEL;
+wire [4:0] ALUOP;
+wire [2:0] BRANCH_JUMP;
+wire [2:0] IMM_SEL;
+wire [3:0] READ_WRITE;
 
+wire LUI, AUIPC, JAL, JALR, B_TYPE, LOAD, STORE, I_TYPE, R_TYPE;
+wire ALUOP_TYPE, BL;
+wire [2:0] IMM_TYPE; 
 
+and lui(LUI, !OPCODE[6], OPCODE[5], OPCODE[4], !OPCODE[3], OPCODE[2], OPCODE[1], OPCODE[0]);
+and auipc(AUIPC, !OPCODE[6], !OPCODE[5], OPCODE[4], !OPCODE[3], OPCODE[2], OPCODE[1], OPCODE[0]);
+and jal(JAL, OPCODE[6], OPCODE[5], !OPCODE[4], OPCODE[3], OPCODE[2], OPCODE[1], OPCODE[0]);
+and jalr(JALR, OPCODE[6], OPCODE[5], !OPCODE[4], !OPCODE[3], OPCODE[2], OPCODE[1], OPCODE[0]);
+and b_type(B_TYPE, OPCODE[6], OPCODE[5], !OPCODE[4], !OPCODE[3], !OPCODE[2], OPCODE[1], OPCODE[0]);
+and load(LOAD, !OPCODE[6], !OPCODE[5], !OPCODE[4], !OPCODE[3], !OPCODE[2], OPCODE[1], OPCODE[0]);
+and store(STORE, !OPCODE[6], OPCODE[5], !OPCODE[4], !OPCODE[3], !OPCODE[2], OPCODE[1], OPCODE[0]);
+and i_type(I_TYPE, !OPCODE[6], !OPCODE[5], OPCODE[4], !OPCODE[3], !OPCODE[2], OPCODE[1], OPCODE[0]);
+and r_type(R_TYPE, !OPCODE[6], OPCODE[5], OPCODE[4], !OPCODE[3], !OPCODE[2], OPCODE[1], OPCODE[0]);
 
-module control_unit(ALUOP,READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,LOADSIGNAL,STORESIGNAL,BRANCHSIGNAL,WRITEENABLE,OPCODE,BUSYWAIT,func3,func7);
-    /*
-    * Declare inputs and outputs
-    *
-    */
-    input [31:0] INSTRUCTION;
-    input [6:0] OPCODE; 
-    input [2:0] func3;
-    input [6:0] func7;
-    input BUSYWAIT;
+or op1sel(OP1SEL, AUIPC, JAL, B_TYPE);
+or op2sel(OP2SEL, AUIPC, JAL, JALR, B_TYPE, LOAD, STORE, I_TYPE);
+or reg_write_en(REG_WRITE_EN, LUI, AUIPC, JAL, JALR, LOAD, I_TYPE, R_TYPE);
+or wb_sel1(WB_SEL[1], LUI, JAL, JALR);
+or wb_sel0(WB_SEL[0], JAL, JALR, LOAD);
+or aluop_type(ALUOP_TYPE, I_TYPE, R_TYPE);
+or bl(BL, JAL, JALR, B_TYPE);
+or imm_type2(IMM_TYPE[2], JALR, I_TYPE,LOAD);
+or imm_type1(IMM_TYPE[1], B_TYPE, STORE);
+or imm_type0(IMM_TYPE[0], JAL, B_TYPE);
 
-    output reg READ,WRITE,SELECTWRITE,IMMflag,Jumpflag,WRITEENABLE;
-    output reg [4:0] ALUOP;  
-    output reg [2:0]LOADSIGNAL,BRANCHSIGNAL; 
-    output reg [1:0]STORESIGNAL;
+//////////////////////////////////////////////
+//  BRANCH_JUMP generation unit
+//////////////////////////////////////////////
+wire BRANCH0_OR_OUTPUT;
 
+// BRANCH_JUMP[2] bit
+and branch2(BRANCH_JUMP[2], !OPCODE[2], BL, FUNCT3[2]);
 
-   
-  
-    
-    //When busywait changes, 
-    //if it is 0 , reset the READ and WRITE signals 
-    always @ (BUSYWAIT) begin
-        if(BUSYWAIT == 1'b0) begin
-            #1
-            READ = 1'b0;
-            WRITE = 1'b0;
-            if(OPCODE==8'b00001001) begin
-                WRITEENABLE=1;
-           
-            end
-            
-            
-        end
-    end
+// BRANCH_JUMP[1] bit
+or branch1(BRANCH_JUMP[1], OPCODE[2], !BL, FUNCT3[1]);
 
-    /*
-    * Always when opcode changes 
-    * set ALUOP,SUBflag ,IMMflag
-    *
-    */
-    always @ (OPCODE,INSTRUCTION) begin
-    //set 1 time unit delay for instruction decoding
-    #1;
-    Jumpflag=0;
-  
-    SELECTWRITE=0;
-    WRITEENABLE=0;
-    IMMflag=0;
-    LOADSIGNAL=0;
-    STORESIGNAL=0;
-    BRANCHSIGNAL=0;
- 
-        case (OPCODE)
-            //LB, LH, LW, LBU, LHU,
-            7'b0000011 : begin
-                #1;
-                case (func3)
-                    3'b000:  //LB
-                        LOADSIGNAL=1;
-                    3'b001:  //LH
-                        LOADSIGNAL=2;
-                    3'b010:  //LW
-                        LOADSIGNAL=3;
-                    3'b100:  //LBU
-                        LOADSIGNAL=4;
-                    3'b101:  //LHU
-                        LOADSIGNAL=5;
-                   
-                endcase
-                ALUOP=4'b0001;   
-                SELECTWRITE=1; 
-                READ=1;                   
-            end
+// BRANCH_JUMP[0] bit
+or branch0_or(BRANCH0_OR_OUTPUT, OPCODE[2], FUNCT3[0]);
+and branch0(BRANCH_JUMP[0], BRANCH0_OR_OUTPUT, BL);
 
-            //ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI, 
-            7'b0010011 : begin
-                #1;
-                IMMflag=1;
-                case (func3)
-                    3'b000:  
-                        ALUOP= 5'b00001;
-                        
-                    3'b010:
-                        ALUOP=5'b10001;
-                      
+//////////////////////////////////////////////
+// IMM_SEL generation unit
+//////////////////////////////////////////////
+wire IMM_SEL1_AND1_OUTPUT, IMM_SEL1_AND2_OUTPUT, IMM_SEL0_OR1_OUTPUT, IMM_SEL0_AND1_OUTPUT, IMM_SEL0_AND2_OUTPUT, IMM_SEL1_OR_OUTPUT, IMM_SEL0_OR2_OUTPUT;
 
-                    3'b011: 
-                        ALUOP=5'b10010;
-                     
-                    3'b100:
-                        ALUOP=5'b00100;  //XORI
-                  
-                    3'b110:
-                        ALUOP=5'b00011;   //ORI
-                 
-                    3'b111:
-                        ALUOP=5'b00010;   //ANDI
-                 
-                    3'b001:
-                        ALUOP=5'b00101;  //SLLI
-           
-                       
-                    3'b101:
-                        
-                        case (func7)
-                            7'b0000000:
-                                ALUOP=5'b00110;  //SRLI
+// IMM_SEL[2] bit
+assign IMM_SEL[2] = IMM_TYPE[2];
 
-                            7'b0100000: 
-                                ALUOP=5'b00111;  //SRAI
-                        
-                    
-                        endcase
-                   
-                endcase
-               
-                IMMflag=1;    
-                WRITEENABLE=1;                 
-            end
+// IMM_SEL[1] bit
+and imm_sel1_and1(IMM_SEL1_AND1_OUTPUT, IMM_TYPE[2], !FUNCT3[2], FUNCT3[1], FUNCT3[0]);
+and imm_sel1_and2(IMM_SEL1_AND2_OUTPUT, !IMM_TYPE[2], IMM_TYPE[1]);
+or imm_sel1_or(IMM_SEL1_OR_OUTPUT, IMM_SEL1_AND1_OUTPUT, IMM_SEL1_AND2_OUTPUT);
+and imm_sel1_and3(IMM_SEL[1], !LOAD, IMM_SEL1_OR_OUTPUT);
 
-            //ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND, 
-            7'b0110011 : begin
-                #1;
-                case (func7)
-                    7'b0100000: 
-                        case (func3)
-                            3'b000:        //sub instruction
-                                begin
-                                ALUOP=5'b01000; IMMflag=0;
-                                WRITEENABLE=1;
-                                end
-                            
-                            3'b101:       //SRA
-                                begin
-                                ALUOP=5'b00111;
-                                IMMflag=0;
-                                WRITEENABLE=1;
-                                end
-                        endcase
-                    7'b0000000: 
-                        case (func3)
-                            3'b000:        //ADD instruction
-                                begin
-                                ALUOP=5'b00001;  IMMflag=0;    
-                                WRITEENABLE=1;
-                                end
-                            3'b001:        //SLL
-                                begin
-                                ALUOP=5'b00101; IMMflag=0; 
-                                WRITEENABLE=1; 
-                                end
-                            3'b010:        //SLT
-                                begin
-                                ALUOP=5'b10001;  IMMflag=0; 
-                                WRITEENABLE=1; 
-                                end
-                            3'b011:        //SLTU
-                                begin
-                                ALUOP=5'b10010;
-                                IMMflag=0; 
-                                WRITEENABLE=1; 
-                                end
-                            3'b100:        //XOR
-                                begin
-                                ALUOP=5'b00100;
-                                IMMflag=0; 
-                                WRITEENABLE=1; 
-                                end
-                            3'b101:        //SRL
-                                begin
-                                ALUOP= 5'b00110; IMMflag=0;
-                                WRITEENABLE=1; 
-                                end
-                            3'b110:        //OR
-                                begin
-                                ALUOP= 5'b00011;
-                                IMMflag=0; 
-                                WRITEENABLE=1;
-                                end
-                            3'b111:        //AND
-                                begin
-                                ALUOP= 5'b00010;
-                                IMMflag=0; 
-                                WRITEENABLE=1;
-                                end
-                        endcase
-                    
-                    //MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU
+// IMM_SEL[0] bit
+or imm_sel0_or1(IMM_SEL0_OR1_OUTPUT, !FUNCT3[2], !FUNCT3[1]);
+and imm_sel0_and1(IMM_SEL0_AND1_OUTPUT, IMM_SEL0_OR1_OUTPUT, FUNCT3[0], IMM_TYPE[2]);
+and imm_sel0_and2(IMM_SEL0_AND2_OUTPUT, !IMM_TYPE[2], IMM_TYPE[0]);
+or imm_sel0_or2(IMM_SEL0_OR2_OUTPUT, IMM_SEL0_AND1_OUTPUT, IMM_SEL0_AND2_OUTPUT);
+and imm_sel0_and3(IMM_SEL[0], !LOAD, IMM_SEL0_OR2_OUTPUT);
 
-                    7'b0000001: begin
-                        WRITEENABLE=1; 
-                      
-                        case (func3)
-                            3'b000:        //MUL
-                                ALUOP=5'b01001;
-                                
-                                
-                            3'b001:        //MULH
-                                ALUOP=5'b01010;
-                                
-                            3'b010:        //MULHSU
-                                ALUOP= 5'b01100;
-                               
-                            3'b011:        //MULHU
-                                ALUOP=5'b01011;
-                              
-                            3'b100:        //DIV
-                                ALUOP=5'b01101;
-                            3'b101:        //DIVU
-                                ALUOP=5'b01110;
+//////////////////////////////////////////////
+// ALUOP generation unit
+//////////////////////////////////////////////
+wire I_SHIFT, FUNCT7_EN, FUNCT7_5, FUNCT7_0;
 
-                            3'b110:        //REM
-                                ALUOP=5'b01111;
+and i_shift(I_SHIFT, IMM_SEL[2], !IMM_SEL[1], IMM_SEL[0]);
+or r_type_or_i_shift(FUNCT7_EN, I_SHIFT, R_TYPE);
 
+and funct7_5_en(FUNCT7_5, FUNCT7[5], FUNCT7_EN);
+and funct7_0_en(FUNCT7_0, FUNCT7[0], FUNCT7_EN);
 
-                            3'b111:        //REMU
-                                ALUOP=5'b10000;
+and aluop4(ALUOP[4], FUNCT3[2], ALUOP_TYPE);    // ALUOP[4] bit
+and aluop3(ALUOP[3], FUNCT3[1], ALUOP_TYPE);    // ALUOP[3] bit
+and aluop2(ALUOP[2], FUNCT3[0], ALUOP_TYPE);    // ALUOP[2] bit
+and aluop1(ALUOP[1], FUNCT7_5, ALUOP_TYPE);    // ALUOP[1] bit
+and aluop0(ALUOP[0], FUNCT7_0, ALUOP_TYPE);    // ALUOP[0] bit
 
-                            
-                        endcase
-                    end
+//////////////////////////////////////////////
+// READ_WRITE to cache memory
+//////////////////////////////////////////////
+wire READ_WRITE_AND1, READ_WRITE_AND2, READ_WRITE_AND3, READ_WRITE_AND4, READ_WRITE_AND5, READ_WRITE_AND6, READ_WRITE_AND7;
 
-                        
-                     
-                    
-                endcase
-                            
-            end
+and mem_rw_and1(READ_WRITE_AND1, !STORE, LOAD, FUNCT3[2], !FUNCT3[1], !FUNCT3[0]);
+and mem_rw_and2(READ_WRITE_AND2, !STORE, LOAD, FUNCT3[2], !FUNCT3[1], FUNCT3[0]);
+and mem_rw_and3(READ_WRITE_AND3, STORE, !LOAD, !FUNCT3[2], !FUNCT3[1], FUNCT3[0]);
+and mem_rw_and4(READ_WRITE_AND4, STORE, !LOAD, !FUNCT3[2], FUNCT3[1], !FUNCT3[0]);
+and mem_rw_and5(READ_WRITE_AND5, STORE, !LOAD, !FUNCT3[2], !FUNCT3[1], !FUNCT3[0]);
+and mem_rw_and6(READ_WRITE_AND6, !STORE, LOAD, !FUNCT3[2], FUNCT3[1], !FUNCT3[0]);
+and mem_rw_and7(READ_WRITE_AND7, !STORE, LOAD, !FUNCT3[2], !FUNCT3[1], FUNCT3[0]);
 
-            //SB, SH, SW, 
-            7'b0100011 : begin
-                #1;
-                ALUOP=5'b00000;
-                case (func3)
-                    3'b000:        //SB
-                        STORESIGNAL=1;
-                        
-                    3'b001:        //SH
-                        STORESIGNAL=2;
-                    3'b010:        //SW
-                        STORESIGNAL=3;
-                    
-                endcase
-                READ = 0;
-                WRITE = 1;
-                             
-            end
+or mem_rw3(READ_WRITE[3], LOAD, STORE);
+or mem_rw2(READ_WRITE[2], READ_WRITE_AND1, READ_WRITE_AND2, READ_WRITE_AND3, READ_WRITE_AND4);
+or mem_rw1(READ_WRITE[1], READ_WRITE_AND3, READ_WRITE_AND4, READ_WRITE_AND5, READ_WRITE_AND6);
+or mem_rw0(READ_WRITE[0], READ_WRITE_AND4, READ_WRITE_AND5, READ_WRITE_AND2, READ_WRITE_AND7);
 
-            //BEQ, BNE, BLT, BGE, BLTU, BGEU
-            7'b1100011 : begin
-                #1;
-                case (func3)
-                    3'b000:  //BEQ---
-                    begin
-                        BRANCHSIGNAL=1;
-                        ALUOP=5'b01000; 
-                        end
-                    3'b001:  //BNE--
-                    begin
-                        BRANCHSIGNAL=2;
-                        ALUOP=5'b01000; 
-                        end
-
-
-                    3'b100: 
-                    begin
-                        BRANCHSIGNAL=3;
-                        ALUOP=5'b10001; 
-                        end
-
-                        
-                    3'b101:
-                    begin
-                        BRANCHSIGNAL=4;
-                        ALUOP=5'b10001; 
-                        end
-
-                    3'b110:
-                    begin
-                        BRANCHSIGNAL=5;
-                        
-                        ALUOP=5'b10010; 
-                        end
-
-                    3'b111: 
-                    begin
-                        BRANCHSIGNAL=6;
-                        ALUOP=5'b10010; 
-                        end
-
-                                                         
-                endcase
-
-                
-                IMMflag=0; 
-                //Writing is disable
-                WRITEENABLE=0; 
-                            
-            end
-
-
-
-            //LUI
-            7'b0110111 : begin
-                #1;
-
-                ALUOP=5'b00000;
-                LOADSIGNAL=6;                           
-                IMMflag=1;    
-                WRITEENABLE=1;      
-                         
-            end
-
-           
-            //AUIPC
-            7'b0010111 : begin
-                #1;
-                ALUOP=5'b00001;
-                LOADSIGNAL=6; 
-                IMMflag=1;    
-                WRITEENABLE=1;                 
-            end
-            //JAL-----
-            7'b1101111 : begin
-                #1;
-                Jumpflag=1;
-                          
-            end
-
-            //JALR
-            7'b1100111 : begin
-                #1;
-                Jumpflag=1;
-                              
-            end
-
-          
-    
-        endcase
-        
-    end
-    
 endmodule
-//-----------------------------------------------------------------------------------------------------------
-
-
-
-

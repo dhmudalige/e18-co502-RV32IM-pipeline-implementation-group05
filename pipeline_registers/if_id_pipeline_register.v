@@ -1,4 +1,4 @@
-module if_id_pipeline_reg(
+module if_id_pipeline_register(
     IN_INSTRUCTION, 
     IN_PC, 
     OUT_INSTRUCTION, 
